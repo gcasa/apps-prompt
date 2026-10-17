@@ -1,0 +1,4 @@
+Generated with the built-in image_gen tool.
+Reference: NeXTspim icon_256x256.png (local NeXTspim checkout).
+
+Use case: stylized-concept. Asset type: GNUstep Terminal application icon. Create a NeXT computer icon similar in silhouette and retro NeXTSTEP aesthetic to the reference NeXTspim icon: front-facing black angular CRT monitor, gray bezel, small black pedestal and keyboard. Replace the chip/MIPS display with a dark terminal screen containing only a crisp white >_ prompt. Restrained black and gray palette, tiny subtle colored NeXT badge on bezel. Strong simple silhouette, carefully shaded retro desktop icon, readable at 48x48. Center whole computer with small margins on a genuinely transparent square background. No words, no additional objects, no rounded app tile.

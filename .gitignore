@@ -1,0 +1,10 @@
+obj/
+*.app/
+Tests/obj/
+Tests/TerminalTests
+*.o
+*.d
+*.app
+.DS_Store
+build
+obj

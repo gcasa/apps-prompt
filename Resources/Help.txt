@@ -1,0 +1,97 @@
+GNUstep Terminal
+===============
+
+Getting started
+---------------
+New Terminal (Command-N) opens an interactive shell in your home directory.
+New Terminal in Directory (Command-O) lets you choose its working directory.
+You can also launch Terminal.app/Terminal --directory /absolute/path.
+The shell is chosen from executable $SHELL, then your account shell, then
+/bin/sh. It runs interactively with a controlling POSIX pseudo-terminal.
+Use shell commands such as cd to change directory within a session.
+GNUstep's Command modifier is commonly mapped to Alt or Super; check your
+GNUstep keyboard configuration. Control-C, Control-D, Control-Z and other
+Control combinations go to the shell, including while a command is running.
+
+Sessions
+--------
+Each window owns an independent shell. Closing a window or Close Session
+(Command-W) ends that session and hangs up its shell and foreground job.
+Quit ends all sessions. Shells that ignore hangup are killed after a short
+grace period and reaped. On Linux, remaining jobs in the same session are
+also terminated and orphaned descendants are reaped by the app. Programs that deliberately detach into a different
+session are outside the terminal's lifecycle.
+Open Terminal / Close Terminal (Command-T) toggles the most recently active
+terminal window and preserves its shell; the menu title follows visibility.
+Close Session (Command-W) ends the session instead. Minimize and Hide Terminal
+also preserve sessions and continue processing output.
+After shell exit, existing output stays visible. Return starts a new shell.
+Restart Shell (also in the context menu) ends the current shell and clears
+its screen/history before starting again in the original working directory.
+
+Scrolling, selection and clipboard
+----------------------------------
+The right-hand scrollbar, wheel/trackpad, and Shift-Page Up/Down browse
+history. Small trackpad deltas accumulate. Output follows automatically
+when you are at the bottom; otherwise the reading position stays fixed
+until those lines age out of history. Typing or pasting returns to the live
+screen. Default history is 5,000 lines; Preferences accepts 0–50,000.
+Full-screen applications use a separate alternate screen without adding
+their display updates to shell history.
+Drag to select text. Copy (Command-C), Paste (Command-V), Select All
+(Command-A), and the right-click context menu use the native clipboard.
+When an application requests mouse reporting, mouse events go to it. Hold
+Shift to select, scroll history, or open the context menu locally.
+Paste uses bracketed paste when requested by the program; escape bytes are
+removed to prevent an embedded escape from ending its bracket. Newlines
+are sent as Return. Multiline paste may execute multiple shell commands.
+
+Preferences
+-----------
+Preferences (Command-comma) applies immediately to every open terminal and
+is saved for future launches. The Fonts button opens the native Fonts panel;
+choose a fixed-pitch font from 6 through 72 points. Other choices are ignored
+with a beep. Changing font or window size resizes both emulator and PTY,
+notifies the foreground job via SIGWINCH, and preserves the shell session.
+Color wells open the native Color panel for default foreground, background,
+and cursor. ANSI colors explicitly selected by applications remain intact.
+Cursor color defaults to red. Choose a filled block, outline, vertical line,
+underline, or the shape requested by the program. Filled cursors draw the
+underlying character in contrasting ink. Blink cursor permits program-
+requested blinking; Audible bell controls BEL. Restore Defaults resets all
+terminal settings. Invalid saved values fall back to safe defaults.
+
+Compatibility
+-------------
+The bundled libvterm 0.3.3 engine handles ANSI/VT100 and substantial VT220/
+xterm text behavior: cursor motion, erase, insert/delete, scroll regions,
+saved cursors, alternate screens, DEC graphics, application cursor/keypad,
+function keys, device/status queries, mouse reporting, bracketed paste,
+UTF-8, wide/combining characters, 16/256 colors and RGB truecolor. Rendering
+supports bold, italic, underline (single/double), reverse, conceal, strike,
+and blink. Font fallback and installed glyph coverage affect Unicode display.
+TERM=xterm-256color and COLORTERM=truecolor describe the supported text
+protocol; this is not a complete xterm implementation. Vim, less and top
+can use its interactive PTY and full-screen display.
+
+Limits: no sixel, ReGIS, Tektronix or inline images; no OSC 52 clipboard
+access, clickable OSC 8 links, terminal-driven window manipulation or title
+changes; no full xterm resource/escape-extension compatibility. No bidi,
+complex-script shaping guarantee, input-method composition UI, or extended
+keyboard protocols such as Kitty. Double-width/height DEC lines are parsed
+but not rendered at double size; curly underline is drawn as single.
+Resizing retains physical history lines rather than reflowing wrapped text;
+narrower views may clip long history lines. Copy trims trailing spaces and
+copies physical rows as separate lines. Selection does not autoscroll beyond
+the window. Very large pastes are queued in memory while the PTY drains.
+The app targets POSIX systems with UNIX 98 PTYs (tested on GNU/Linux).
+
+Licenses
+--------
+TerminalView and terminal preference storage are adapted from Ycode:
+Copyright (C) 2026 Free Software Foundation (terminal view), and
+Copyright (C) 2025 Free Software Foundation; author Gregory Casamento
+(preferences). This standalone application uses GPL version 2 or later;
+see the bundled COPYING. It has no runtime dependency on Ycode classes.
+libvterm is Copyright Paul Evans and contributors, MIT licensed; see
+libvterm-LICENSE.txt in this bundle. Source provenance is in Terminal/README.txt.
