@@ -8,3 +8,9 @@ Tests/TerminalTests
 .DS_Store
 build
 obj
+*.o
+*.d
+*.app
+.DS_Store
+build
+obj
