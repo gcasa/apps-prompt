@@ -1,4 +1,4 @@
-# GNUstep Terminal
+# GNUstep Prompt
 
 Independent, manual-reference-counted AppKit terminal using bundled libvterm
 0.3.3 and asynchronous, nonblocking POSIX PTY I/O. No Ycode libraries required.
@@ -12,14 +12,15 @@ Build with the configured GNUstep development environment:
 
 ```sh
 make
-./Terminal.app/Terminal
-./Terminal.app/Terminal --directory /tmp
+./Prompt.app/Prompt
+./Prompt.app/Prompt --directory /tmp
 make check
 ```
 
 Dependencies: GNUstep Make, Base and GUI, an Objective-C compiler, a GUI backend,
 and POSIX UNIX 98 PTYs. libvterm is included; no network downloads are needed.
 `make install` uses the standard GNUstep application target (optional).
+Prompt retains the existing preferences domain so saved settings carry over.
 Preferences use the separate `io.github.gcasa.apps-terminal` domain. GAP
 Terminal's `org.gap.Terminal` domain and legacy `Terminal` settings are left
 untouched; existing settings from those domains are not imported.

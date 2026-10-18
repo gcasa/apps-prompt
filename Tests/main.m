@@ -50,6 +50,7 @@ static void testAssert(BOOL ok, NSString *message) {
 - (void)queueBytes:(const char *)bytes length:(size_t)length;
 
 - (NSPasteboard *)pasteboard;
+- (void)advanceBlink;
 @end
 
 @interface TerminalTestView : TerminalView
@@ -562,9 +563,25 @@ static void testInputAndHistory(void)
 
 // Exercise cursor painting without starting a shell or a polling timer.
 @interface CursorTestView : TerminalView
+{
+@public
+  NSUInteger fullInvalidations, partialInvalidations;
+}
 @end
 @implementation CursorTestView
 - (BOOL)isRunning { return YES; }
+
+- (void)setNeedsDisplay:(BOOL)flag
+{
+  if (flag) fullInvalidations++;
+  [super setNeedsDisplay:flag];
+}
+
+- (void)setNeedsDisplayInRect:(NSRect)rect
+{
+  partialInvalidations++;
+  [super setNeedsDisplayInRect:rect];
+}
 @end
 
 static BOOL cursorPixelVisible(TerminalView *view)
@@ -574,6 +591,14 @@ static BOOL cursorPixelVisible(TerminalView *view)
   NSBitmapImageRep *bitmap = [view bitmapImageRepForCachingDisplayInRect:[view bounds]];
   [view cacheDisplayInRect:[view bounds] toBitmapImageRep:bitmap];
   return colorMatches([bitmap colorAtX:(NSUInteger)[NSScroller scrollerWidth] + 2 y:2], 1, 0, 0);
+}
+
+static NSData *renderedPixels(TerminalView *view)
+{
+  [view lockFocus];
+  NSBitmapImageRep *bitmap = [[[NSBitmapImageRep alloc] initWithFocusedViewRect:[view bounds]] autorelease];
+  [view unlockFocus];
+  return [bitmap representationUsingType:NSPNGFileType properties:[NSDictionary dictionary]];
 }
 
 static void testActiveCursor(void)
@@ -588,6 +613,17 @@ static void testActiveCursor(void)
     [windows[i] setContentView:views[i]];
     [windows[i] makeKeyAndOrderFront:nil]; [windows[i] makeFirstResponder:views[i]];
   }
+  views[0]->fullInvalidations = views[0]->partialInvalidations = 0;
+  views[1]->fullInvalidations = views[1]->partialInvalidations = 0;
+  [views[0] advanceBlink]; [views[1] advanceBlink];
+  testAssert(views[0]->fullInvalidations == 0 && views[0]->partialInvalidations == 0,
+    @"Inactive cursor blink causes no repaint");
+  testAssert(views[1]->fullInvalidations == 0 && views[1]->partialInvalidations > 0,
+    @"Active cursor blink repaints only its cells");
+  views[1]->fullInvalidations = views[1]->partialInvalidations = 0;
+  terminalFeed(views[1], @"x\b \b");
+  testAssert(views[1]->fullInvalidations == 0 && views[1]->partialInvalidations > 0,
+    @"Text and cursor updates request partial redraws");
   [views[0] setValue:[NSNumber numberWithBool:NO] forKey:@"_blinkOn"];
   [views[1] setValue:[NSNumber numberWithBool:NO] forKey:@"_blinkOn"];
   testAssert(cursorPixelVisible(views[0]) && !cursorPixelVisible(views[1]),
@@ -602,9 +638,31 @@ static void testActiveCursor(void)
   [TerminalPreferences setTerminalCursorBlink:NO];
   [views[0] setValue:[NSNumber numberWithBool:NO] forKey:@"_blinkOn"];
   testAssert(cursorPixelVisible(views[0]), @"Disabling cursor blink keeps the active cursor steady");
+  views[0]->fullInvalidations = views[0]->partialInvalidations = 0;
+  [views[0] advanceBlink];
+  testAssert(views[0]->fullInvalidations == 0 && views[0]->partialInvalidations == 0,
+    @"Disabled cursor blink causes no repaint");
+  terminalFeed(views[0], @"\033[5mX\033[0m");
+  views[0]->fullInvalidations = views[0]->partialInvalidations = 0;
+  [views[0] advanceBlink];
+  testAssert(views[0]->fullInvalidations == 0 && views[0]->partialInvalidations > 0,
+    @"ANSI blinking text still repaints with cursor blinking disabled");
+  terminalFeed(views[0], @"\033[2J\033[H");
   [TerminalPreferences setTerminalCursorBlink:YES];
   terminalFeed(views[0], @"\033[?25l");
   testAssert(!cursorPixelVisible(views[0]), @"Application-requested hidden cursor remains hidden");
+  NSArray *updates = [NSArray arrayWithObjects:
+    @"\033[?25hhello", @"\rH", @"\033[2;2H中é", @"\033[2;3HX",
+    @"\033[3;1H\033[4;41m   \033[0m", @"\033[3;2H\033[K",
+    @"\033[?1049hother screen", @"\033[?1049l", @"\033[2J\033[H", nil];
+  for (NSString *update in updates) {
+    terminalFeed(views[0], update);
+    [views[0] displayIfNeeded];
+    NSData *partial = [[renderedPixels(views[0]) copy] autorelease];
+    [views[0] setNeedsDisplay:YES]; [views[0] displayIfNeeded];
+    testAssert([partial isEqual:renderedPixels(views[0])],
+      @"Incremental painting matches a complete repaint (text, wide glyphs, decorations, alternate screen)");
+  }
   for (i = 0; i < 2; i++) { [windows[i] close]; [views[i] release]; [windows[i] release]; }
 }
 

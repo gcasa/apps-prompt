@@ -1,4 +1,4 @@
-/* Standalone GNUstep Terminal. GPL-2.0-or-later; see COPYING. */
+/* Standalone GNUstep Prompt. GPL-2.0-or-later; see COPYING. */
 #import "AppController.h"
 int main(int argc, const char **argv)
 {

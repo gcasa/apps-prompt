@@ -1,5 +1,5 @@
 /*
- * Standalone GNUstep Terminal. GPL-2.0-or-later; see COPYING.
+ * Standalone GNUstep Prompt. GPL-2.0-or-later; see COPYING.
  * Font-panel responder integration follows Ycode AppController:
  * Copyright (C) 2025 Free Software Foundation; author Gregory Casamento.
  */
@@ -54,8 +54,8 @@ static NSTextField *label(NSView *view, NSString *text, CGFloat y)
 
 - (void)buildMenus
 {
-  NSMenu *main = [[[NSMenu alloc] initWithTitle:@"Terminal"] autorelease];
-  addItem(main, @"About Terminal", @selector(orderFrontStandardAboutPanel:), @"", NSApp);
+  NSMenu *main = [[[NSMenu alloc] initWithTitle:@"Prompt"] autorelease];
+  addItem(main, @"About Prompt", @selector(orderFrontStandardAboutPanel:), @"", NSApp);
   addItem(main, @"Preferences…", @selector(showPreferences:), @",", self);
   NSMenu *session = [[[NSMenu alloc] initWithTitle:@"Session"] autorelease];
   addItem(main, @"Session", NULL, @"", nil); [main setSubmenu:session forItem:[main itemWithTitle:@"Session"]];
@@ -73,10 +73,12 @@ static NSTextField *label(NSView *view, NSString *text, CGFloat y)
   addItem(main, @"Window", NULL, @"", nil); [main setSubmenu:window forItem:[main itemWithTitle:@"Window"]];
   addItem(window, @"Minimize", @selector(performMiniaturize:), @"m", nil);
   [NSApp setWindowsMenu:window];
-  addItem(main, @"Terminal Help", @selector(showHelp:), @"?", self);
-  addItem(main, @"Hide Terminal", @selector(hide:), @"h", NSApp);
+  addItem(main, @"Prompt Help", @selector(showHelp:), @"?", self);
+  addItem(main, @"Hide Prompt", @selector(hide:), @"h", NSApp);
   addItem(main, @"Quit", @selector(terminate:), @"q", NSApp);
   [NSApp setMainMenu:main];
+  // GNUstep uses the process name for the menu window when installing it.
+  [[main window] setTitle:@"Prompt"];
 }
 
 - (void)applicationDidFinishLaunching:(NSNotification *)notification
@@ -94,7 +96,7 @@ static NSTextField *label(NSView *view, NSString *text, CGFloat y)
     styleMask:NSTitledWindowMask | NSClosableWindowMask | NSMiniaturizableWindowMask | NSResizableWindowMask
     backing:NSBackingStoreBuffered defer:NO];
   [window setReleasedWhenClosed:NO]; [window setMinSize:NSMakeSize(240, 140)];
-  [window setTitle:[NSString stringWithFormat:@"Terminal — %@", directory]];
+  [window setTitle:[NSString stringWithFormat:@"Prompt — %@", directory]];
   TerminalView *terminal = [[TerminalView alloc] initWithFrame:[[window contentView] bounds]];
   [window setContentView:terminal];
   [window setContentSize:[terminal contentSizeForColumns:[TerminalPreferences terminalColumns] rows:[TerminalPreferences terminalRows]]];
@@ -179,7 +181,7 @@ static NSTextField *label(NSView *view, NSString *text, CGFloat y)
   if (!_preferences) {
     _preferences = [[TerminalPreferencesPanel alloc] initWithContentRect:NSMakeRect(180, 180, 480, 500)
       styleMask:NSTitledWindowMask | NSClosableWindowMask backing:NSBackingStoreBuffered defer:NO];
-    [_preferences setTitle:@"Terminal Preferences"]; [_preferences setReleasedWhenClosed:NO];
+    [_preferences setTitle:@"Prompt Preferences"]; [_preferences setReleasedWhenClosed:NO];
     NSView *view = [_preferences contentView];
     label(view, @"Fixed-pitch font (6–72 pt)", 345);
     _fontButton = [[[TerminalFontButton alloc] initWithFrame:NSMakeRect(210, 340, 250, 32)] autorelease];
@@ -294,7 +296,7 @@ static NSTextField *label(NSView *view, NSString *text, CGFloat y)
   if (!_help) {
     _help = [[NSWindow alloc] initWithContentRect:NSMakeRect(160, 120, 730, 580)
       styleMask:NSTitledWindowMask | NSClosableWindowMask | NSResizableWindowMask backing:NSBackingStoreBuffered defer:NO];
-    [_help setTitle:@"Terminal Help"]; [_help setReleasedWhenClosed:NO];
+    [_help setTitle:@"Prompt Help"]; [_help setReleasedWhenClosed:NO];
     NSScrollView *scroll = [[[NSScrollView alloc] initWithFrame:[[_help contentView] bounds]] autorelease];
     [scroll setHasVerticalScroller:YES]; [scroll setAutoresizingMask:NSViewWidthSizable | NSViewHeightSizable];
     NSTextView *text = [[[NSTextView alloc] initWithFrame:[[scroll contentView] bounds]] autorelease];
@@ -303,7 +305,7 @@ static NSTextField *label(NSView *view, NSString *text, CGFloat y)
     [text setFont:[NSFont userFixedPitchFontOfSize:13]];
     NSString *path = [[NSBundle mainBundle] pathForResource:@"Help" ofType:@"txt"];
     NSString *help = [NSString stringWithContentsOfFile:path encoding:NSUTF8StringEncoding error:NULL];
-    [text setString:help ? help : @"Terminal Help could not be loaded from the application bundle."];
+    [text setString:help ? help : @"Prompt Help could not be loaded from the application bundle."];
     [scroll setDocumentView:text]; [_help setContentView:scroll];
   }
   [_help makeKeyAndOrderFront:nil];

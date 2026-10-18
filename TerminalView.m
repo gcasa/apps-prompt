@@ -58,16 +58,21 @@
 - (void)preferencesChanged:(NSNotification *)notification;
 
 - (void)ringBell;
+- (void)invalidateTerminalRect:(VTermRect)rect;
+- (void)invalidateCursorAt:(VTermPos)position;
+- (BOOL)cursorCanBlink;
+- (void)advanceBlink;
 @end
 
 static int terminalDamage(VTermRect rect, void *user)
 {
-  [(TerminalView *)user setNeedsDisplay:YES];
+  [(TerminalView *)user invalidateTerminalRect:rect];
   return 1;
 }
 static int terminalCursor(VTermPos pos, VTermPos old, int visible, void *user)
 {
-  [(TerminalView *)user setNeedsDisplay:YES];
+  [(TerminalView *)user invalidateCursorAt:old];
+  [(TerminalView *)user invalidateCursorAt:pos];
   return 1;
 }
 static int terminalProperty(VTermProp property, VTermValue *value, void *user)
@@ -286,6 +291,49 @@ static NSUInteger cleanupCount;
 - (BOOL)isRunning { return _master >= 0; }
 
 
+- (void)invalidateTerminalRect:(VTermRect)rect
+{
+  // While browsing history, screen rows and visible rows no longer coincide.
+  if (_scrollOffset) { [self setNeedsDisplay:YES]; return; }
+  // Include neighbouring cells so either half of a wide glyph is repainted.
+  int start = MAX(0, rect.start_col - 1), end = MIN(_columns, rect.end_col + 1);
+  [self setNeedsDisplayInRect:NSMakeRect([NSScroller scrollerWidth] + start * _cellWidth,
+    rect.start_row * _cellHeight, (end - start) * _cellWidth,
+    (rect.end_row - rect.start_row) * _cellHeight)];
+}
+
+- (void)invalidateCursorAt:(VTermPos)position
+{
+  if (_scrollOffset) return;
+  VTermRect rect = { position.row, position.row + 1, position.col, position.col + 1 };
+  [self invalidateTerminalRect:rect];
+}
+
+- (BOOL)cursorCanBlink
+{
+  return _allowCursorBlink && _cursorBlink && [self isRunning]
+    && [NSApp isActive] && [[self window] isKeyWindow] && [[self window] firstResponder] == self;
+}
+
+- (void)advanceBlink
+{
+  _blinkOn = !_blinkOn;
+  if (![[self window] isVisible]) return;
+  if (_cursorVisible && !_scrollOffset && [self cursorCanBlink]) {
+    VTermPos cursor; vterm_state_get_cursorpos(vterm_obtain_state(_terminal), &cursor);
+    [self invalidateCursorAt:cursor];
+  }
+  // ANSI blinking text remains independent of the cursor preference/focus.
+  NSInteger first = (_alternateScreen ? 0 : [_history count]) - _scrollOffset;
+  int row, col;
+  for (row = 0; row < _rows; row++) for (col = 0; col < _columns; col++) {
+    VTermScreenCell cell;
+    if ([self cellAtRow:first + row column:col cell:&cell] && cell.attrs.blink)
+      [self setNeedsDisplayInRect:NSMakeRect([NSScroller scrollerWidth] + col * _cellWidth,
+        row * _cellHeight, MAX(1, cell.width) * _cellWidth, _cellHeight)];
+  }
+}
+
 - (int)property:(VTermProp)property value:(VTermValue *)value
 {
   if (property == VTERM_PROP_CURSORVISIBLE) _cursorVisible = value->boolean;
@@ -297,8 +345,13 @@ static NSUInteger cleanupCount;
     _selectionStart = _selectionEnd = -1;
   }
   if (property == VTERM_PROP_MOUSE) _mouseReporting = value->number != VTERM_PROP_MOUSE_NONE;
-  // OSC titles and clipboard requests never alter the UI or pasteboard.
-  [self setNeedsDisplay:YES];
+  // Only visual properties need a repaint; mouse mode and OSC do not.
+  if (property == VTERM_PROP_ALTSCREEN) [self setNeedsDisplay:YES];
+  else if (property == VTERM_PROP_CURSORVISIBLE || property == VTERM_PROP_CURSORBLINK
+      || property == VTERM_PROP_CURSORSHAPE) {
+    VTermPos cursor; vterm_state_get_cursorpos(vterm_obtain_state(_terminal), &cursor);
+    [self invalidateCursorAt:cursor];
+  }
   return 1;
 }
 
@@ -679,8 +732,7 @@ static NSUInteger cleanupCount;
 {
   NSTimeInterval now = [NSDate timeIntervalSinceReferenceDate];
   if (now - _lastBlink >= 0.5) {
-    _lastBlink = now; _blinkOn = !_blinkOn;
-    if ([[self window] isVisible]) [self setNeedsDisplay:YES];
+    _lastBlink = now; [self advanceBlink];
   }
 #ifndef _WIN32
   char buffer[8192]; ssize_t count; NSUInteger total = 0;
@@ -768,12 +820,18 @@ static NSUInteger cleanupCount;
   int row, col, pass;
   // Paint backgrounds before glyphs so a wide glyph is not erased by its
   // trailing cell. Clip each glyph to its terminal cell(s), not its font advance.
-  for (pass = 0; pass < 2; pass++) for (row = 0; row < _rows; row++) {
-    for (col = 0; col < _columns; col++) {
+  int firstRow = MAX(0, (int)floor(NSMinY(dirty) / _cellHeight));
+  int lastRow = MIN(_rows, (int)ceil(NSMaxY(dirty) / _cellHeight));
+  int firstCol = MAX(0, (int)floor((NSMinX(dirty) - [NSScroller scrollerWidth]) / _cellWidth) - 1);
+  int lastCol = MIN(_columns, (int)ceil((NSMaxX(dirty) - [NSScroller scrollerWidth]) / _cellWidth));
+  for (pass = 0; pass < 2; pass++) for (row = firstRow; row < lastRow; row++) {
+    for (col = firstCol; col < lastCol; col++) {
       NSRect rect = NSMakeRect([NSScroller scrollerWidth] + col * _cellWidth, row * _cellHeight, _cellWidth, _cellHeight);
-      if (!NSIntersectsRect(rect, dirty)) continue;
       VTermScreenCell cell;
       if (![self cellAtRow:first + row column:col cell:&cell]) continue;
+      NSRect paintRect = rect;
+      if (pass == 1) paintRect.size.width *= MAX(1, cell.width);
+      if (!NSIntersectsRect(paintRect, dirty) || ![self needsToDrawRect:paintRect]) continue;
       NSColor *fg = [self color:cell.fg], *bg = [self color:cell.bg];
       if (cell.attrs.reverse) { NSColor *swap = fg; fg = bg; bg = swap; }
       NSInteger position = (first + row) * _columns + col;
@@ -782,6 +840,9 @@ static NSUInteger cleanupCount;
       }
       if (pass == 0) { [bg set]; NSRectFill(rect); continue; }
       if (cell.chars[0] == (uint32_t)-1 || cell.attrs.conceal || (cell.attrs.blink && !_blinkOn)) continue;
+      // Blank cells still have backgrounds and decorations, but need no glyph.
+      if ((cell.chars[0] == 0 || (cell.chars[0] == ' ' && !cell.chars[1]))
+          && !cell.attrs.underline && !cell.attrs.strike) continue;
       NSFont *font = cell.attrs.bold ? _boldFont : _font;
       if (cell.attrs.italic) {
         NSFont *italic = [[NSFontManager sharedFontManager] convertFont:font toHaveTrait:NSItalicFontMask];
@@ -800,8 +861,7 @@ static NSUInteger cleanupCount;
       [NSGraphicsContext restoreGraphicsState];
     }
   }
-  BOOL cursorCanBlink = _allowCursorBlink && _cursorBlink && [self isRunning]
-    && [NSApp isActive] && [[self window] isKeyWindow] && [[self window] firstResponder] == self;
+  BOOL cursorCanBlink = [self cursorCanBlink];
   if (_cursorVisible && !_scrollOffset && (!cursorCanBlink || _blinkOn)) {
     VTermPos cursor; vterm_state_get_cursorpos(vterm_obtain_state(_terminal), &cursor);
     [_cursorColor set];
@@ -858,6 +918,7 @@ static NSUInteger cleanupCount;
     [self updateScroller];
     [self setNeedsDisplay:YES]; return;
   }
+  BOOL redraw = _scrollOffset != 0 || _selectionStart >= 0;
   _scrollOffset = 0; _selectionStart = _selectionEnd = -1;
   _wheelRemainder = 0; [self updateScroller];
   VTermModifier mods = terminalModifiers(event);
@@ -905,7 +966,13 @@ static NSUInteger cleanupCount;
       vterm_keyboard_unichar(_terminal, code, mods);
     }
   }
-  [self setNeedsDisplay:YES];
+  if (redraw) [self setNeedsDisplay:YES];
+  else if (!_blinkOn) {
+    VTermPos cursor; vterm_state_get_cursorpos(vterm_obtain_state(_terminal), &cursor);
+    [self invalidateCursorAt:cursor];
+  }
+  _blinkOn = YES;
+  _lastBlink = [NSDate timeIntervalSinceReferenceDate];
 }
 
 - (BOOL)performKeyEquivalent:(NSEvent *)event

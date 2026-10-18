@@ -1,11 +1,11 @@
-GNUstep Terminal
+GNUstep Prompt
 ===============
 
 Getting started
 ---------------
 New Terminal (Command-N) opens an interactive shell in your home directory.
 New Terminal in Directory (Command-O) lets you choose its working directory.
-You can also launch Terminal.app/Terminal --directory /absolute/path.
+You can also launch Prompt.app/Prompt --directory /absolute/path.
 The shell is chosen from executable $SHELL, then your account shell, then
 /bin/sh. It runs interactively with a controlling POSIX pseudo-terminal.
 Use shell commands such as cd to change directory within a session.
@@ -23,7 +23,7 @@ also terminated and orphaned descendants are reaped by the app. Programs that de
 session are outside the terminal's lifecycle.
 Open Terminal / Close Terminal (Command-T) toggles the most recently active
 terminal window and preserves its shell; the menu title follows visibility.
-Close Session (Command-W) ends the session instead. Minimize and Hide Terminal
+Close Session (Command-W) ends the session instead. Minimize and Hide Prompt
 also preserve sessions and continue processing output.
 After shell exit, existing output stays visible. Return starts a new shell.
 Restart Shell (also in the context menu) ends the current shell and clears

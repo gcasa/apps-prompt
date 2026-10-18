@@ -39,7 +39,7 @@ The suite covers:
   and settings reloaded by a separate executable process.
 - Dynamic Open Terminal / Close Terminal titles and same-session preservation.
 
-A separate smoke run launched `Terminal.app/Terminal --directory /tmp` on an
+A separate smoke run launched `Prompt.app/Prompt --directory /tmp` on an
 isolated display, typed a real shell command, opened Help and Preferences using
 keyboard menu shortcuts, captured and visually inspected both windows, and
 quit through the menu shortcut with exit status 0. Help loaded the bundled
