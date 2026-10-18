@@ -7,7 +7,12 @@ TerminalTests_OBJC_FILES = main.m ../TerminalView.m ../TerminalPreferences.m ../
 TerminalTests_C_FILES = $(wildcard ../Terminal/libvterm/src/*.c)
 TerminalTests_INCLUDE_DIRS = -I.. -I../Terminal/libvterm/include
 TerminalTests_CFLAGS = -std=c99
-TerminalTests_TOOL_LIBS = -lgnustep-gui
+# X11 supplies mouse state while the window manager owns the resize drag.
+ifneq ($(shell pkg-config --exists x11 && echo yes),)
+TerminalTests_OBJCFLAGS += -DTERMINAL_X11_RESIZE $(shell pkg-config --cflags x11)
+TerminalTests_TOOL_LIBS += $(shell pkg-config --libs x11)
+endif
+TerminalTests_TOOL_LIBS += -lgnustep-gui
 include $(GNUSTEP_MAKEFILES)/tool.make
 check:: all
 	./obj/TerminalTests

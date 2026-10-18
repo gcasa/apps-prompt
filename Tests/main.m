@@ -27,6 +27,11 @@
 #import "TerminalView.h"
 #import "TerminalPreferences.h"
 #import "AppController.h"
+#ifdef TERMINAL_X11_RESIZE
+#include <X11/Xlib.h>
+#include <X11/Xutil.h>
+#import <GNUstepGUI/GSDisplayServer.h>
+#endif
 #include <math.h>
 #include <signal.h>
 #include <errno.h>
@@ -202,6 +207,35 @@ static void testTerminal(NSString *temporaryDirectory)
     [NSString stringWithFormat:@"\033[48;5;%dm  %2d  ", row, row]);
   terminalFeed(view, @"\033[0m\r\n\r\n\033[38;2;90;200;255mTruecolor\033[0m  UTF-8: café 中 é\r\n\r\n\033(0lqqqqqqqqqqqqqqqqqqqqk\r\nx\033(B ANSI line drawing  \033(0x\r\nmqqqqqqqqqqqqqqqqqqqqj\033(B\r\n\r\n$ ");
   [preview display];
+  [view viewWillStartLiveResize];
+  [preview setContentSize:[view contentSizeForColumns:92 rows:30]];
+  testAssert([[view valueForKey:@"_columns"] intValue] == 92
+    && [[view valueForKey:@"_rows"] intValue] == 30, @"Resize indicator uses the updated terminal grid");
+#ifdef TERMINAL_X11_RESIZE
+  GSDisplayServer *server = GSServerForWindow(preview);
+  if ([server respondsToSelector:@selector(xDisplayRootWindow)]) {
+    Display *display = (Display *)[server serverDevice];
+    Window xid = (Window)[preview windowRef];
+    XSizeHints hints; XWindowAttributes dimensions; long supplied;
+    BOOL gotHints = XGetWMNormalHints(display, xid, &hints, &supplied)
+      && XGetWindowAttributes(display, xid, &dimensions);
+    testAssert(gotHints && (hints.flags & PBaseSize) && (hints.flags & PResizeInc)
+      && hints.width_inc > 0 && hints.height_inc > 0
+      && (dimensions.width - hints.base_width) / hints.width_inc == 92
+      && (dimensions.height - hints.base_height) / hints.height_inc == 30,
+      @"Window manager resize readout reports character columns and rows");
+  }
+#endif
+  NSBitmapImageRep *resizeBitmap = [view bitmapImageRepForCachingDisplayInRect:[view bounds]];
+  [view cacheDisplayInRect:[view bounds] toBitmapImageRep:resizeBitmap];
+  NSData *duringResize = [resizeBitmap representationUsingType:NSPNGFileType properties:[NSDictionary dictionary]];
+  [duringResize writeToFile:[temporaryDirectory stringByAppendingPathComponent:@"resize-indicator.png"] atomically:YES];
+  [view viewDidEndLiveResize];
+  [preview display];
+  [view cacheDisplayInRect:[view bounds] toBitmapImageRep:resizeBitmap];
+  testAssert(![duringResize isEqual:[resizeBitmap representationUsingType:NSPNGFileType properties:[NSDictionary dictionary]]],
+    @"Ending live resize removes the rendered size indicator");
+
   if ([[[NSProcessInfo processInfo] arguments] containsObject:@"--terminal-preview"]) {
     NSBitmapImageRep *bitmap = [view bitmapImageRepForCachingDisplayInRect:[view bounds]];
     [view cacheDisplayInRect:[view bounds] toBitmapImageRep:bitmap];
@@ -505,6 +539,54 @@ static void testInputAndHistory(void)
   [view release];
 }
 
+// Exercise cursor painting without starting a shell or a polling timer.
+@interface CursorTestView : TerminalView
+@end
+@implementation CursorTestView
+- (BOOL)isRunning { return YES; }
+@end
+
+static BOOL cursorPixelVisible(TerminalView *view)
+{
+  [view setNeedsDisplay:YES];
+  [[view window] display];
+  NSBitmapImageRep *bitmap = [view bitmapImageRepForCachingDisplayInRect:[view bounds]];
+  [view cacheDisplayInRect:[view bounds] toBitmapImageRep:bitmap];
+  return colorMatches([bitmap colorAtX:(NSUInteger)[NSScroller scrollerWidth] + 2 y:2], 1, 0, 0);
+}
+
+static void testActiveCursor(void)
+{
+  testAssert([TerminalPreferences terminalCursorBlink], @"Cursor blinking is enabled by default");
+  NSWindow *windows[2]; CursorTestView *views[2]; int i;
+  for (i = 0; i < 2; i++) {
+    windows[i] = [[NSWindow alloc] initWithContentRect:NSMakeRect(40+i*40,40,320,180)
+      styleMask:NSTitledWindowMask backing:NSBackingStoreBuffered defer:NO];
+    [windows[i] setReleasedWhenClosed:NO];
+    views[i] = [[CursorTestView alloc] initWithFrame:NSMakeRect(0,0,320,180)];
+    [windows[i] setContentView:views[i]];
+    [windows[i] makeKeyAndOrderFront:nil]; [windows[i] makeFirstResponder:views[i]];
+  }
+  [views[0] setValue:[NSNumber numberWithBool:NO] forKey:@"_blinkOn"];
+  [views[1] setValue:[NSNumber numberWithBool:NO] forKey:@"_blinkOn"];
+  testAssert(cursorPixelVisible(views[0]) && !cursorPixelVisible(views[1]),
+    @"Only the active terminal hides its cursor during the blink off phase");
+  [windows[0] makeKeyAndOrderFront:nil];
+  testAssert(cursorPixelVisible(views[0]) && cursorPixelVisible(views[1]),
+    @"Switching active windows immediately restores both cursors");
+  [views[0] setValue:[NSNumber numberWithBool:NO] forKey:@"_blinkOn"];
+  [views[1] setValue:[NSNumber numberWithBool:NO] forKey:@"_blinkOn"];
+  testAssert(!cursorPixelVisible(views[0]) && cursorPixelVisible(views[1]),
+    @"Blinking follows the newly active terminal");
+  [TerminalPreferences setTerminalCursorBlink:NO];
+  [views[0] setValue:[NSNumber numberWithBool:NO] forKey:@"_blinkOn"];
+  testAssert(cursorPixelVisible(views[0]), @"Disabling cursor blink keeps the active cursor steady");
+  [TerminalPreferences setTerminalCursorBlink:YES];
+  terminalFeed(views[0], @"\033[?25l");
+  testAssert(!cursorPixelVisible(views[0]), @"Application-requested hidden cursor remains hidden");
+  for (i = 0; i < 2; i++) { [windows[i] close]; [views[i] release]; [windows[i] release]; }
+}
+
 int main(int argc, const char **argv)
 {
   NSAutoreleasePool *pool = [NSAutoreleasePool new];
@@ -526,6 +608,7 @@ int main(int argc, const char **argv)
   testAssert([[TerminalPreferences terminalFont] pointSize] == 13 && [TerminalPreferences terminalScrollbackLines] == 5000,
     @"Corrupt saved settings fall back safely");
   [TerminalPreferences resetTerminalPreferences];
+  testActiveCursor();
   testTerminal(directory);
   testInitialSizeAndPrograms(directory);
   testInputAndHistory();

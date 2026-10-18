@@ -58,7 +58,9 @@ and cursor. ANSI colors explicitly selected by applications remain intact.
 Cursor color defaults to red. Choose a filled block, outline, vertical line,
 underline, or the shape requested by the program. Filled cursors draw the
 underlying character in contrasting ink. Blink cursor permits program-
-requested blinking; Audible bell controls BEL. Restore Defaults resets all
+requested blinking in the active terminal only and is enabled by default.
+Inactive terminals show a steady cursor. Turn off Blink active cursor in
+Preferences for a steady cursor in every window. Audible bell controls BEL. Restore Defaults resets all
 terminal settings. Invalid saved values fall back to safe defaults.
 
 Compatibility

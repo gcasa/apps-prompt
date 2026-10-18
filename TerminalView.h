@@ -27,6 +27,9 @@
   NSUInteger _scrollbackLimit;
   BOOL _audibleBell, _allowCursorBlink;
   NSTimer *_timer;
+  NSTimer *_resizeTimer;
+  void *_resizeDisplay;
+  BOOL _showResizeIndicator;
   int _master;
   int _child;
   int _session;

@@ -8,6 +8,11 @@ Terminal_OBJC_FILES = main.m AppController.m TerminalView.m TerminalPreferences.
 Terminal_C_FILES = $(wildcard Terminal/libvterm/src/*.c)
 Terminal_INCLUDE_DIRS = -ITerminal/libvterm/include
 Terminal_CFLAGS = -std=c99
+# X11 supplies mouse state while the window manager owns the resize drag.
+ifneq ($(shell pkg-config --exists x11 && echo yes),)
+Terminal_OBJCFLAGS += -DTERMINAL_X11_RESIZE $(shell pkg-config --cflags x11)
+Terminal_GUI_LIBS += $(shell pkg-config --libs x11)
+endif
 Terminal_APPLICATION_ICON = Terminal.png
 Terminal_RESOURCE_FILES = Resources/Terminal.png Resources/Help.txt Resources/libvterm-LICENSE.txt COPYING
 include $(GNUSTEP_MAKEFILES)/application.make

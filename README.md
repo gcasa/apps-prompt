@@ -3,6 +3,9 @@
 Independent, manual-reference-counted AppKit terminal using bundled libvterm
 0.3.3 and asynchronous, nonblocking POSIX PTY I/O. No Ycode libraries required.
 New windows open at 80 columns by 25 rows, with the history scroller on the left.
+During resizing, a centered tooltip shows the current columns and rows until
+the drag ends. On GNUstep/X11, this uses X11 mouse state (enabled when the
+X11 development package is available at build time).
 
 Build with the configured GNUstep development environment:
 

@@ -199,7 +199,7 @@ static NSTextField *label(NSView *view, NSString *text, CGFloat y)
     [view addSubview:_history];
     _bell = [[[NSButton alloc] initWithFrame:NSMakeRect(20, 72, 190, 28)] autorelease];
     _blink = [[[NSButton alloc] initWithFrame:NSMakeRect(230, 72, 220, 28)] autorelease];
-    [_bell setTitle:@"Audible bell"]; [_blink setTitle:@"Blink cursor"];
+    [_bell setTitle:@"Audible bell"]; [_blink setTitle:@"Blink active cursor"];
     NSArray *checks = [NSArray arrayWithObjects:_bell, _blink, nil];
     for (i = 0; i < 2; i++) {
       NSButton *button = [checks objectAtIndex:i]; [button setButtonType:NSSwitchButton];

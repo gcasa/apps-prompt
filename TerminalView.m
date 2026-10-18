@@ -11,6 +11,11 @@
 #endif
 #import "TerminalView.h"
 #import "TerminalPreferences.h"
+#ifdef TERMINAL_X11_RESIZE
+#include <X11/Xlib.h>
+#include <X11/Xutil.h>
+#import <GNUstepGUI/GSDisplayServer.h>
+#endif
 #include <math.h>
 #include <errno.h>
 #include <string.h>
@@ -43,6 +48,8 @@
 - (void)clearHistory;
 
 - (void)resizeTerminal;
+- (void)updateResizeIndicator;
+- (void)updateWindowSizeHints;
 
 - (void)updateScroller;
 
@@ -150,7 +157,7 @@ static NSUInteger cleanupCount;
     _font = RETAIN([TerminalPreferences terminalFont]);
     _boldFont = RETAIN([[NSFontManager sharedFontManager] convertFont:_font toHaveTrait:NSBoldFontMask]);
     _cellWidth = ceil([@"M" sizeWithAttributes:[NSDictionary dictionaryWithObject:_font forKey:NSFontAttributeName]].width);
-    _cellHeight = ceil([_font ascender] - [_font descender] + 3);
+    _cellHeight = ceil([_font ascender] - [_font descender]);
     _history = [NSMutableArray new];
     _pendingInput = [NSMutableData new];
     CGFloat scrollerWidth = [NSScroller scrollerWidth];
@@ -187,6 +194,9 @@ static NSUInteger cleanupCount;
   RELEASE(_font); RELEASE(_boldFont); RELEASE(_history);
   RELEASE(_foregroundColor); RELEASE(_backgroundColor); RELEASE(_cursorColor);
   RELEASE(_pendingInput); RELEASE(_directory);
+#ifdef TERMINAL_X11_RESIZE
+  if (_resizeDisplay) XCloseDisplay((Display *)_resizeDisplay);
+#endif
   [super dealloc];
 }
 
@@ -205,7 +215,7 @@ static NSUInteger cleanupCount;
   NSFont *bold = [[NSFontManager sharedFontManager] convertFont:_font toHaveTrait:NSBoldFontMask];
   ASSIGN(_boldFont, bold ? bold : _font);
   _cellWidth = ceil([@"M" sizeWithAttributes:[NSDictionary dictionaryWithObject:_font forKey:NSFontAttributeName]].width);
-  _cellHeight = ceil([_font ascender] - [_font descender] + 3);
+  _cellHeight = ceil([_font ascender] - [_font descender]);
   ASSIGN(_foregroundColor, [TerminalPreferences terminalForegroundColor]);
   ASSIGN(_backgroundColor, [TerminalPreferences terminalBackgroundColor]);
   ASSIGN(_cursorColor, [TerminalPreferences terminalCursorColor]);
@@ -224,6 +234,8 @@ static NSUInteger cleanupCount;
   _scrollOffset = MIN(_scrollOffset, (NSInteger)[_history count]);
   _audibleBell = [TerminalPreferences terminalAudibleBell];
   _allowCursorBlink = [TerminalPreferences terminalCursorBlink];
+  _blinkOn = YES;
+  _lastBlink = [NSDate timeIntervalSinceReferenceDate];
   [self resizeTerminal];
   [self updateScroller];
   [self setNeedsDisplay:YES];
@@ -235,6 +247,8 @@ static NSUInteger cleanupCount;
 
 - (BOOL)becomeFirstResponder
 {
+  _blinkOn = YES;
+  _lastBlink = [NSDate timeIntervalSinceReferenceDate];
   [[self window] setAcceptsMouseMovedEvents:YES];
   vterm_state_focus_in(vterm_obtain_state(_terminal));
   [self setNeedsDisplay:YES]; return YES;
@@ -248,11 +262,23 @@ static NSUInteger cleanupCount;
 
 - (void)viewWillMoveToWindow:(NSWindow *)window
 {
-  if ([self window]) [[NSNotificationCenter defaultCenter] removeObserver:self
-    name:NSWindowWillCloseNotification object:[self window]];
-  if (window) [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(windowClosing:)
-    name:NSWindowWillCloseNotification object:window];
+  NSNotificationCenter *center = [NSNotificationCenter defaultCenter];
+  for (NSString *name in [NSArray arrayWithObjects:NSWindowWillCloseNotification,
+      NSWindowDidBecomeKeyNotification, NSWindowDidResignKeyNotification, nil]) {
+    if ([self window]) [center removeObserver:self name:name object:[self window]];
+    if (window) [center addObserver:self selector:
+      [name isEqual:NSWindowWillCloseNotification] ? @selector(windowClosing:) : @selector(windowFocusChanged:)
+      name:name object:window];
+  }
   [super viewWillMoveToWindow:window];
+}
+
+- (void)windowFocusChanged:(NSNotification *)notification
+{
+  // Show the cursor immediately on either side of a focus change.
+  _blinkOn = YES;
+  _lastBlink = [NSDate timeIntervalSinceReferenceDate];
+  [self setNeedsDisplay:YES];
 }
 
 - (void)windowClosing:(NSNotification *)notification { [self stop]; }
@@ -331,7 +357,9 @@ static NSUInteger cleanupCount;
 
 - (void)setFrame:(NSRect)frame
 {
+  BOOL resized = !NSEqualSizes([self frame].size, frame.size);
   [super setFrame:frame];
+  if (_terminal && resized) [self updateResizeIndicator];
   // NSTabView uses setFrame: when installing a selected tab. GNUstep does
   // not route that change through setFrameSize:.
   if (_terminal) [self resizeTerminal];
@@ -339,12 +367,108 @@ static NSUInteger cleanupCount;
 
 - (void)setFrameSize:(NSSize)size
 {
+  BOOL resized = !NSEqualSizes([self frame].size, size);
   [super setFrameSize:size];
+  if (_terminal && resized) [self updateResizeIndicator];
   if (_terminal) [self resizeTerminal];
+}
+
+- (BOOL)resizeMouseIsDown
+{
+#ifdef TERMINAL_X11_RESIZE
+  if (!_resizeDisplay) _resizeDisplay = XOpenDisplay(NULL);
+  if (_resizeDisplay) {
+    Display *display = (Display *)_resizeDisplay;
+    Window root, child;
+    int rootX, rootY, x, y;
+    unsigned int mask;
+    if (XQueryPointer(display, DefaultRootWindow(display), &root, &child,
+        &rootX, &rootY, &x, &y, &mask))
+      return (mask & (Button1Mask | Button2Mask | Button3Mask)) != 0;
+  }
+#endif
+  return [NSEvent pressedMouseButtons] != 0;
+}
+
+- (void)checkResizeEnded:(NSTimer *)timer
+{
+  if ([self resizeMouseIsDown]) return;
+  _showResizeIndicator = NO;
+  [_resizeTimer invalidate]; DESTROY(_resizeTimer);
+  [self setNeedsDisplay:YES];
+}
+
+- (void)viewWillStartLiveResize
+{
+  [super viewWillStartLiveResize];
+  [self setNeedsDisplay:YES];
+}
+
+- (void)viewDidEndLiveResize
+{
+  [super viewDidEndLiveResize];
+  _showResizeIndicator = NO;
+  [_resizeTimer invalidate]; DESTROY(_resizeTimer);
+  [self setNeedsDisplay:YES];
+}
+
+- (void)updateResizeIndicator
+{
+  // GNUstep's X11 backend does not send live-resize callbacks. Query the
+  // pointer independently of events, since the window manager owns the drag.
+  if ([[self window] isVisible] && ![self inLiveResize] && [self resizeMouseIsDown]) {
+    _showResizeIndicator = YES;
+    if (!_resizeTimer) {
+      _resizeTimer = [[NSTimer timerWithTimeInterval:0.03 target:self
+        selector:@selector(checkResizeEnded:) userInfo:nil repeats:YES] retain];
+      for (NSString *mode in [NSArray arrayWithObjects:NSDefaultRunLoopMode,
+          NSEventTrackingRunLoopMode, NSModalPanelRunLoopMode, nil])
+        [[NSRunLoop mainRunLoop] addTimer:_resizeTimer forMode:mode];
+    }
+  }
+  [self setNeedsDisplay:YES];
+}
+
+- (void)viewDidMoveToWindow
+{
+  [super viewDidMoveToWindow];
+  [self updateWindowSizeHints];
+}
+
+- (void)updateWindowSizeHints
+{
+  NSWindow *window = [self window];
+  if (!window || [window contentView] != self) return;
+  NSSize increments = NSMakeSize(_cellWidth, _cellHeight);
+  if (!NSEqualSizes([window resizeIncrements], increments))
+    [window setResizeIncrements:increments];
+#ifdef TERMINAL_X11_RESIZE
+  GSDisplayServer *server = GSServerForWindow(window);
+  // windowRef is an XID only for the X11 backend.
+  if (![server respondsToSelector:@selector(xDisplayRootWindow)]) return;
+  Display *display = (Display *)[server serverDevice];
+  Window xid = (Window)[window windowRef];
+  XSizeHints hints;
+  XWindowAttributes attributes;
+  long supplied;
+  if (!xid || !XGetWMNormalHints(display, xid, &hints, &supplied)
+      || !XGetWindowAttributes(display, xid, &attributes)) return;
+  // Exclude the scroller and any client-side decoration from the grid count.
+  int baseWidth = MAX(0, attributes.width - [self bounds].size.width) + [NSScroller scrollerWidth];
+  int baseHeight = MAX(0, attributes.height - [self bounds].size.height);
+  if (!(hints.flags & PBaseSize) || hints.base_width != baseWidth || hints.base_height != baseHeight) {
+    hints.flags |= PBaseSize;
+    hints.base_width = baseWidth;
+    hints.base_height = baseHeight;
+    XSetWMNormalHints(display, xid, &hints);
+    XFlush(display);
+  }
+#endif
 }
 
 - (void)resizeTerminal
 {
+  [self updateWindowSizeHints];
   int rows = MIN(1000, MAX(2, (int)([self bounds].size.height / _cellHeight)));
   int cols = MIN(1000, MAX(2, (int)(MAX(0, [self bounds].size.width - [NSScroller scrollerWidth]) / _cellWidth)));
   [self updateScroller];
@@ -532,6 +656,8 @@ static NSUInteger cleanupCount;
 
 - (void)stop
 {
+  [_resizeTimer invalidate]; DESTROY(_resizeTimer);
+  _showResizeIndicator = NO;
   [_timer invalidate]; DESTROY(_timer);
 #ifndef _WIN32
   pid_t foreground = _master >= 0 ? tcgetpgrp(_master) : -1;
@@ -674,7 +800,9 @@ static NSUInteger cleanupCount;
       [NSGraphicsContext restoreGraphicsState];
     }
   }
-  if (_cursorVisible && !_scrollOffset && (!_allowCursorBlink || !_cursorBlink || _blinkOn || ![self isRunning])) {
+  BOOL cursorCanBlink = _allowCursorBlink && _cursorBlink && [self isRunning]
+    && [NSApp isActive] && [[self window] isKeyWindow] && [[self window] firstResponder] == self;
+  if (_cursorVisible && !_scrollOffset && (!cursorCanBlink || _blinkOn)) {
     VTermPos cursor; vterm_state_get_cursorpos(vterm_obtain_state(_terminal), &cursor);
     [_cursorColor set];
     NSInteger shape = _preferredCursorShape;
@@ -700,6 +828,19 @@ static NSUInteger cleanupCount;
       }
     }
     else NSFrameRect(rect);
+  }
+  if (_showResizeIndicator || [self inLiveResize]) {
+    NSString *text = [NSString stringWithFormat:@"%d x %d", _columns, _rows];
+    NSDictionary *attributes = [NSDictionary dictionaryWithObjectsAndKeys:
+      [NSFont boldSystemFontOfSize:14], NSFontAttributeName,
+      [NSColor blackColor], NSForegroundColorAttributeName, nil];
+    NSSize size = [text sizeWithAttributes:attributes];
+    NSRect box = NSMakeRect(floor(NSMidX([self bounds]) - (size.width + 24) / 2),
+      floor(NSMidY([self bounds]) - (size.height + 16) / 2), size.width + 24, size.height + 16);
+    NSBezierPath *path = [NSBezierPath bezierPathWithRoundedRect:box xRadius:6 yRadius:6];
+    [[NSColor colorWithCalibratedRed:1 green:1 blue:0.85 alpha:1] set]; [path fill];
+    [[NSColor darkGrayColor] set]; [path stroke];
+    [text drawAtPoint:NSMakePoint(box.origin.x + 12, box.origin.y + 8) withAttributes:attributes];
   }
 }
 
