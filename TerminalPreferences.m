@@ -156,6 +156,27 @@ NSString *TerminalPreferencesDidChangeNotification = @"TerminalPreferencesDidCha
     [self setTerminalValue:[NSNumber numberWithUnsignedInteger:MIN(50000, lines)] forKey:@"scrollbackLines"];
 }
 
++ (NSUInteger)terminalDimensionForKey:(NSString *)key fallback:(NSUInteger)fallback
+{
+    id value = [[self terminalSettings] objectForKey:key];
+    double number = [value isKindOfClass:[NSNumber class]] ? [value doubleValue] : 0;
+    return isfinite(number) && number >= 2 && number <= 1000 && floor(number) == number
+        ? (NSUInteger)number : fallback;
+}
+
++ (NSUInteger)terminalColumns { return [self terminalDimensionForKey:@"columns" fallback:80]; }
+
++ (NSUInteger)terminalRows { return [self terminalDimensionForKey:@"rows" fallback:25]; }
+
++ (void)setTerminalColumns:(NSUInteger)columns rows:(NSUInteger)rows
+{
+    if (columns < 2 || columns > 1000 || rows < 2 || rows > 1000) return;
+    NSMutableDictionary *settings = [NSMutableDictionary dictionaryWithDictionary:[self terminalSettings]];
+    [settings setObject:[NSNumber numberWithUnsignedInteger:columns] forKey:@"columns"];
+    [settings setObject:[NSNumber numberWithUnsignedInteger:rows] forKey:@"rows"];
+    [self saveTerminalSettings:settings];
+}
+
 + (BOOL)terminalBooleanForKey:(NSString *)key
 {
     id value = [[self terminalSettings] objectForKey:key];

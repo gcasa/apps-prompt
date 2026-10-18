@@ -2,7 +2,8 @@
 
 Independent, manual-reference-counted AppKit terminal using bundled libvterm
 0.3.3 and asynchronous, nonblocking POSIX PTY I/O. No Ycode libraries required.
-New windows open at 80 columns by 25 rows, with the history scroller on the left.
+New windows default to 80 columns by 25 rows, with the history scroller on the left.
+Set the initial character columns and rows for new windows in Preferences.
 During resizing, a centered tooltip shows the current columns and rows until
 the drag ends. On GNUstep/X11, this uses X11 mouse state (enabled when the
 X11 development package is available at build time).
@@ -19,6 +20,9 @@ make check
 Dependencies: GNUstep Make, Base and GUI, an Objective-C compiler, a GUI backend,
 and POSIX UNIX 98 PTYs. libvterm is included; no network downloads are needed.
 `make install` uses the standard GNUstep application target (optional).
+Preferences use the separate `io.github.gcasa.apps-terminal` domain. GAP
+Terminal's `org.gap.Terminal` domain and legacy `Terminal` settings are left
+untouched; existing settings from those domains are not imported.
 Tests require a display; use `xvfb-run -a make check` for an isolated display.
 
 See [bundled offline Help](Resources/Help.txt) for usage, lifecycle, preferences,

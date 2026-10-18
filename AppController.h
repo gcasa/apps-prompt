@@ -10,7 +10,7 @@
   NSButton *_fontButton, *_bell, *_blink;
   NSColorWell *_foreground, *_background, *_cursor;
   NSPopUpButton *_shape;
-  NSTextField *_history;
+  NSTextField *_history, *_columns, *_rows;
 }
 - (void)buildMenus;
 - (void)newTerminal:(id)sender;
@@ -23,6 +23,7 @@
 - (void)changeFont:(id)sender;
 - (void)changeColors:(id)sender;
 - (void)changeSettings:(id)sender;
+- (void)changeDimensions:(id)sender;
 - (void)restoreDefaults:(id)sender;
 - (void)showHelp:(id)sender;
 @end

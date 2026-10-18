@@ -97,7 +97,7 @@ static NSTextField *label(NSView *view, NSString *text, CGFloat y)
   [window setTitle:[NSString stringWithFormat:@"Terminal — %@", directory]];
   TerminalView *terminal = [[TerminalView alloc] initWithFrame:[[window contentView] bounds]];
   [window setContentView:terminal];
-  [window setContentSize:[terminal contentSizeForColumns:80 rows:25]];
+  [window setContentSize:[terminal contentSizeForColumns:[TerminalPreferences terminalColumns] rows:[TerminalPreferences terminalRows]]];
   [terminal release];
   [window setDelegate:self]; [_windows addObject:window]; _lastTerminalWindow = window; [window release];
   [window makeKeyAndOrderFront:nil]; [window makeFirstResponder:terminal];
@@ -167,6 +167,8 @@ static NSTextField *label(NSView *view, NSString *text, CGFloat y)
   [_background setColor:[TerminalPreferences terminalBackgroundColor]];
   [_cursor setColor:[TerminalPreferences terminalCursorColor]];
   [_shape selectItemAtIndex:[TerminalPreferences terminalCursorShape]];
+  [_columns setIntegerValue:[TerminalPreferences terminalColumns]];
+  [_rows setIntegerValue:[TerminalPreferences terminalRows]];
   [_history setIntegerValue:[TerminalPreferences terminalScrollbackLines]];
   [_bell setState:[TerminalPreferences terminalAudibleBell]];
   [_blink setState:[TerminalPreferences terminalCursorBlink]];
@@ -175,7 +177,7 @@ static NSTextField *label(NSView *view, NSString *text, CGFloat y)
 - (void)showPreferences:(id)sender
 {
   if (!_preferences) {
-    _preferences = [[TerminalPreferencesPanel alloc] initWithContentRect:NSMakeRect(180, 180, 480, 390)
+    _preferences = [[TerminalPreferencesPanel alloc] initWithContentRect:NSMakeRect(180, 180, 480, 500)
       styleMask:NSTitledWindowMask | NSClosableWindowMask backing:NSBackingStoreBuffered defer:NO];
     [_preferences setTitle:@"Terminal Preferences"]; [_preferences setReleasedWhenClosed:NO];
     NSView *view = [_preferences contentView];
@@ -204,6 +206,19 @@ static NSTextField *label(NSView *view, NSString *text, CGFloat y)
     for (i = 0; i < 2; i++) {
       NSButton *button = [checks objectAtIndex:i]; [button setButtonType:NSSwitchButton];
       [button setTarget:self]; [button setAction:@selector(changeSettings:)]; [view addSubview:button];
+    }
+    // Make room below the existing controls for the new-window grid settings.
+    for (NSView *control in [view subviews]) {
+      NSPoint origin = [control frame].origin; origin.y += 110; [control setFrameOrigin:origin];
+    }
+    [label(view, @"New window size (characters)", 145) setFrameSize:NSMakeSize(300, 24)];
+    label(view, @"Columns (2–1,000)", 112);
+    label(view, @"Rows (2–1,000)", 77);
+    _columns = [[[NSTextField alloc] initWithFrame:NSMakeRect(210, 110, 120, 26)] autorelease];
+    _rows = [[[NSTextField alloc] initWithFrame:NSMakeRect(210, 75, 120, 26)] autorelease];
+    for (NSTextField *field in [NSArray arrayWithObjects:_columns, _rows, nil]) {
+      [field setTarget:self]; [field setAction:@selector(changeDimensions:)];
+      [field setDelegate:(id)self]; [view addSubview:field];
     }
     NSButton *reset = [[[NSButton alloc] initWithFrame:NSMakeRect(290, 20, 170, 32)] autorelease];
     [reset setTitle:@"Restore Defaults"]; [reset setTarget:self]; [reset setAction:@selector(restoreDefaults:)];
@@ -248,8 +263,24 @@ static NSTextField *label(NSView *view, NSString *text, CGFloat y)
   [TerminalPreferences setTerminalCursorBlink:[_blink state] == NSOnState];
 }
 
+- (void)changeDimensions:(id)sender
+{
+  int columns, rows;
+  NSScanner *columnScanner = [NSScanner scannerWithString:[_columns stringValue]];
+  NSScanner *rowScanner = [NSScanner scannerWithString:[_rows stringValue]];
+  if ([columnScanner scanInt:&columns] && [columnScanner isAtEnd]
+      && [rowScanner scanInt:&rows] && [rowScanner isAtEnd]
+      && columns >= 2 && columns <= 1000 && rows >= 2 && rows <= 1000)
+    [TerminalPreferences setTerminalColumns:columns rows:rows];
+  else NSBeep();
+  [_columns setIntegerValue:[TerminalPreferences terminalColumns]];
+  [_rows setIntegerValue:[TerminalPreferences terminalRows]];
+}
+
 - (void)controlTextDidEndEditing:(NSNotification *)notification
 {
+  if ([notification object] == _columns || [notification object] == _rows)
+    [self changeDimensions:[notification object]];
   if ([notification object] == _history) [self changeSettings:_history];
 }
 

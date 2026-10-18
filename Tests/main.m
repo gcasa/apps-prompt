@@ -431,6 +431,25 @@ static void testPreferencesAndRendering(NSString *directory)
   testAssert([[fresh valueForKey:@"_font"] pointSize] == 20 && ![[fresh valueForKey:@"_audibleBell"] boolValue]
     && ![[fresh valueForKey:@"_allowCursorBlink"] boolValue], @"New terminals inherit persisted font and bell/blink settings");
   [fresh release];
+  NSTextField *columns = [app valueForKey:@"_columns"], *rows = [app valueForKey:@"_rows"];
+  [columns setStringValue:@"100"]; [rows setStringValue:@"35"]; [app changeDimensions:columns];
+  NSSize previousSize = [[terminal window] frame].size;
+  TerminalView *sized = [app openDirectory:directory];
+  testAssert([[sized valueForKey:@"_columns"] intValue] == 100 && [[sized valueForKey:@"_rows"] intValue] == 35,
+    @"New sessions use the configured character columns and rows");
+  testAssert(NSEqualSizes(previousSize, [[terminal window] frame].size), @"Window-size preferences preserve existing sessions");
+  [[sized window] close];
+  [columns setStringValue:@"100.5"]; [app changeDimensions:columns];
+  [rows setStringValue:@"1001"]; [app changeDimensions:rows];
+  testAssert([columns integerValue] == 100 && [rows integerValue] == 35,
+    @"Fractional and out-of-range dimensions restore the saved values");
+  [app showPreferences:nil];
+  NSView *preferencesView = [[app valueForKey:@"_preferences"] contentView];
+  [[app valueForKey:@"_preferences"] display];
+  NSBitmapImageRep *preferencesBitmap = [preferencesView bitmapImageRepForCachingDisplayInRect:[preferencesView bounds]];
+  [preferencesView cacheDisplayInRect:[preferencesView bounds] toBitmapImageRep:preferencesBitmap];
+  [[preferencesBitmap representationUsingType:NSPNGFileType properties:[NSDictionary dictionary]]
+    writeToFile:[directory stringByAppendingPathComponent:@"preferences.png"] atomically:YES];
   NSString *executable = [[[NSProcessInfo processInfo] arguments] objectAtIndex:0];
   if (![executable isAbsolutePath]) executable = [[[NSFileManager defaultManager] currentDirectoryPath] stringByAppendingPathComponent:executable];
   const char *program = [executable fileSystemRepresentation];
@@ -440,6 +459,8 @@ static void testPreferencesAndRendering(NSString *directory)
   if (reader > 0) while (waitpid(reader, &result, 0) < 0 && errno == EINTR) {}
   testAssert(result == 0, @"A separate process reloads persisted font, colors, history and bell preferences");
   [app restoreDefaults:nil];
+  testAssert([TerminalPreferences terminalColumns] == 80 && [TerminalPreferences terminalRows] == 25,
+    @"Restore Defaults resets new-window dimensions to 80 by 25");
   testAssert([[terminal valueForKey:@"_font"] pointSize] == 13 && [TerminalPreferences terminalScrollbackLines] == 5000
     && colorMatches([TerminalPreferences terminalCursorColor],1,0,0), @"Restore Defaults updates existing views and restores red cursor");
   [[terminal window] close]; [terminal release];
@@ -595,6 +616,7 @@ int main(int argc, const char **argv)
   if ([[[NSProcessInfo processInfo] arguments] containsObject:@"--read-preferences"]) {
     BOOL ok = [[TerminalPreferences terminalFont] pointSize] == 20
       && [TerminalPreferences terminalScrollbackLines] == 50000
+      && [TerminalPreferences terminalColumns] == 100 && [TerminalPreferences terminalRows] == 35
       && ![TerminalPreferences terminalAudibleBell] && ![TerminalPreferences terminalCursorBlink]
       && colorMatches([TerminalPreferences terminalForegroundColor],.2,.8,.6);
     [pool drain]; return ok ? 0 : 1;

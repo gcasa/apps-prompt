@@ -48,7 +48,10 @@ are sent as Return. Multiline paste may execute multiple shell commands.
 
 Preferences
 -----------
-Preferences (Command-comma) applies immediately to every open terminal and
+New window size sets the initial columns and rows in characters (2–1,000 each).
+It defaults to 80 columns by 25 rows and applies to newly opened sessions.
+Existing windows keep their current size.
+Other settings in Preferences (Command-comma) apply immediately to every open terminal and
 is saved for future launches. The Fonts button opens the native Fonts panel;
 choose a fixed-pitch font from 6 through 72 points. Other choices are ignored
 with a beep. Changing font or window size resizes both emulator and PTY,
