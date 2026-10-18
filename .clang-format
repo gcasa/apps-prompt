@@ -1,0 +1,7 @@
+BasedOnStyle: GNU
+ColumnLimit: 80
+ObjCSpaceBeforeProtocolList: true
+SortIncludes: Never
+IncludeBlocks: Preserve
+StatementMacros:
+  - CREATE_AUTORELEASE_POOL

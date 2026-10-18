@@ -25,7 +25,11 @@ Open Terminal / Close Terminal (Command-T) toggles the most recently active
 terminal window and preserves its shell; the menu title follows visibility.
 Close Session (Command-W) ends the session instead. Minimize and Hide Prompt
 also preserve sessions and continue processing output.
-After shell exit, existing output stays visible. Return starts a new shell.
+By default, after shell exit, existing output stays visible. Return starts a new shell.
+Enable “Close window when shell exits” in Preferences to close that session
+automatically instead. This also applies to a program replacing the shell with
+exec; finishing an ordinary command within a running shell does not close it.
+Other sessions and the Prompt application remain open.
 Restart Shell (also in the context menu) ends the current shell and clears
 its screen/history before starting again in the original working directory.
 
@@ -64,7 +68,8 @@ Apply to Current Terminal assigns the selected profile to the most recently
 active terminal, preserving its shell and window size. Selecting a profile in
 Preferences alone does not change any terminal's assignment.
 Each profile stores its font, colors, cursor, history, bell, blink and initial
-grid dimensions. Reducing history can discard older lines in its terminals.
+grid dimensions, plus whether to close the window on shell exit (off by default).
+Reducing history can discard older lines in its terminals.
  The Fonts button opens the native Fonts panel;
 choose a fixed-pitch font from 6 through 72 points. Other choices are ignored
 with a beep. Changing font or window size resizes both emulator and PTY,

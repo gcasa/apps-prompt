@@ -12,7 +12,8 @@
 #import <AppKit/AppKit.h>
 #include "Terminal/libvterm/include/vterm.h"
 
-/** An independent interactive terminal. Screen and nonblocking PTY I/O use the main run loop. */
+/** An independent interactive terminal. Screen and nonblocking PTY I/O use the
+ * main run loop. */
 @interface TerminalView : NSView
 {
   VTerm *_terminal;
@@ -26,7 +27,7 @@
   NSColor *_foregroundColor, *_backgroundColor, *_cursorColor;
   NSInteger _preferredCursorShape;
   NSUInteger _scrollbackLimit;
-  BOOL _audibleBell, _allowCursorBlink;
+  BOOL _audibleBell, _allowCursorBlink, _closeOnExit;
   NSTimer *_timer;
   NSTimer *_resizeTimer;
   void *_resizeDisplay;
@@ -46,7 +47,8 @@
   int _cursorShape;
   NSTimeInterval _lastBlink;
 }
-/** Starts an interactive shell in directory. Repeated calls preserve a running shell. */
+/** Starts an interactive shell in directory. Repeated calls preserve a running
+ * shell. */
 
 - (BOOL)startInDirectory:(NSString *)directory error:(NSError **)error;
 /** Hangs up the terminal and reaps its shell, without blocking the UI. */

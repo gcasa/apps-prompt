@@ -24,10 +24,11 @@
 
 #import <AppKit/AppKit.h>
 extern NSString *TerminalPreferencesDidChangeNotification;
-/** Class accessors edit the selected profile; instances read a particular profile. */
+/** Class accessors edit the selected profile; instances read a particular
+ * profile. */
 @interface TerminalPreferences : NSObject
 {
-    NSString *_profileName;
+  NSString *_profileName;
 }
 + (NSArray *)profileNames;
 + (NSString *)selectedProfileName;
@@ -47,11 +48,13 @@ extern NSString *TerminalPreferencesDidChangeNotification;
 - (NSColor *)terminalForegroundColor;
 + (NSColor *)terminalBackgroundColor;
 - (NSColor *)terminalBackgroundColor;
-+ (void)setTerminalForegroundColor:(NSColor *)foreground backgroundColor:(NSColor *)background;
++ (void)setTerminalForegroundColor:(NSColor *)foreground
+                   backgroundColor:(NSColor *)background;
 + (NSColor *)terminalCursorColor;
 - (NSColor *)terminalCursorColor;
 + (void)setTerminalCursorColor:(NSColor *)color;
-/** Cursor shape: 0 program controlled, 1 block, 2 outline, 3 line, 4 underline. */
+/** Cursor shape: 0 program controlled, 1 block, 2 outline, 3 line, 4 underline.
+ */
 + (NSInteger)terminalCursorShape;
 - (NSInteger)terminalCursorShape;
 + (void)setTerminalCursorShape:(NSInteger)shape;
@@ -69,5 +72,8 @@ extern NSString *TerminalPreferencesDidChangeNotification;
 + (BOOL)terminalCursorBlink;
 - (BOOL)terminalCursorBlink;
 + (void)setTerminalCursorBlink:(BOOL)enabled;
++ (BOOL)terminalCloseOnExit;
+- (BOOL)terminalCloseOnExit;
++ (void)setTerminalCloseOnExit:(BOOL)enabled;
 + (void)resetTerminalPreferences;
 @end

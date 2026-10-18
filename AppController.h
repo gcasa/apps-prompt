@@ -7,7 +7,7 @@
   NSPanel *_preferences;
   NSWindow *_help;
   NSWindow *_lastTerminalWindow; /* owned by _windows */
-  NSButton *_fontButton, *_bell, *_blink;
+  NSButton *_fontButton, *_bell, *_blink, *_closeOnExit;
   NSColorWell *_foreground, *_background, *_cursor;
   NSPopUpButton *_shape, *_profiles;
   NSTextField *_profileName, *_profileStatus;
