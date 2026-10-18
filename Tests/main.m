@@ -666,6 +666,76 @@ static void testActiveCursor(void)
   for (i = 0; i < 2; i++) { [windows[i] close]; [views[i] release]; [windows[i] release]; }
 }
 
+static void testProfiles(NSString *directory)
+{
+  [TerminalPreferences selectProfile:@"Default"];
+  [TerminalPreferences resetTerminalPreferences];
+  [TerminalPreferences setTerminalScrollbackLines:1234];
+  AppController *app = [AppController new];
+  TerminalView *original = [app openDirectory:directory];
+  pid_t pid = [[original valueForKey:@"_child"] intValue];
+  [app showPreferences:nil];
+  [[app valueForKey:@"_profileName"] setStringValue:@"Night"];
+  [app saveProfileCopy:nil];
+  testAssert([[TerminalPreferences selectedProfileName] isEqual:@"Night"]
+    && [TerminalPreferences terminalScrollbackLines] == 1234, @"Save Copy selects an independent copy of existing settings");
+  [TerminalPreferences setTerminalCursorColor:[NSColor blueColor]];
+  [TerminalPreferences setTerminalAudibleBell:NO];
+  [TerminalPreferences setTerminalColumns:92 rows:31];
+  testAssert([[original profileName] isEqual:@"Default"] && [[original valueForKey:@"_audibleBell"] boolValue]
+    && colorMatches([original valueForKey:@"_cursorColor"],1,0,0), @"Editing another profile leaves existing terminals unchanged");
+  [app makeDefaultProfile:nil];
+  TerminalView *night = [app openDirectory:directory];
+  testAssert([[night profileName] isEqual:@"Night"] && ![[night valueForKey:@"_audibleBell"] boolValue]
+    && [[night valueForKey:@"_columns"] intValue] == 92 && [[night valueForKey:@"_rows"] intValue] == 31,
+    @"New windows use the default profile and its grid dimensions");
+  [TerminalPreferences selectProfile:@"Default"];
+  [TerminalPreferences setTerminalAudibleBell:NO];
+  [TerminalPreferences selectProfile:@"Night"];
+  [TerminalPreferences setTerminalAudibleBell:YES];
+  testAssert(![[original valueForKey:@"_audibleBell"] boolValue] && [[night valueForKey:@"_audibleBell"] boolValue],
+    @"Live profile edits update only windows assigned to that profile");
+  [original setProfileName:@"Night"];
+  testAssert([[original valueForKey:@"_child"] intValue] == pid && [original isRunning]
+    && colorMatches([original valueForKey:@"_cursorColor"],0,0,1), @"Applying a profile preserves the running shell");
+  [[app valueForKey:@"_profiles"] selectItemWithTitle:@"Default"];
+  [app selectProfile:nil]; [app applyProfile:nil];
+  testAssert([[night profileName] isEqual:@"Default"] && [[original profileName] isEqual:@"Night"]
+    && [night isRunning], @"Apply to Current Terminal targets only the most recently active session");
+  [app newTerminalWithProfile:nil];
+  NSWindow *selectedWindow = [app valueForKey:@"_lastTerminalWindow"];
+  testAssert([[(TerminalView *)[selectedWindow contentView] profileName] isEqual:@"Default"]
+    && [[TerminalPreferences defaultProfileName] isEqual:@"Night"], @"Open New Terminal uses the selected profile without changing the default");
+  [selectedWindow close];
+  [night setProfileName:@"Night"];
+  [[app valueForKey:@"_profiles"] selectItemWithTitle:@"Night"]; [app selectProfile:nil];
+  [[app valueForKey:@"_profileName"] setStringValue:@"Evening"];
+  [app renameProfile:nil];
+  testAssert([[original profileName] isEqual:@"Evening"] && [[night profileName] isEqual:@"Evening"]
+    && [[TerminalPreferences defaultProfileName] isEqual:@"Evening"], @"Renaming a profile preserves window assignments and the default");
+  testAssert(![TerminalPreferences duplicateSelectedProfileWithName:@"default"]
+    && ![TerminalPreferences duplicateSelectedProfileWithName:@"  "]
+    && ![TerminalPreferences renameSelectedProfile:@"Default"], @"Invalid and duplicate names cannot overwrite profiles");
+  NSString *program = [[[NSProcessInfo processInfo] arguments] objectAtIndex:0];
+  if (![program isAbsolutePath]) program = [[[NSFileManager defaultManager] currentDirectoryPath] stringByAppendingPathComponent:program];
+  pid_t reader = fork();
+  if (reader == 0) { execl([program fileSystemRepresentation], [program fileSystemRepresentation], "--read-profiles", NULL); _exit(127); }
+  int result = -1;
+  if (reader > 0) while (waitpid(reader, &result, 0) < 0 && errno == EINTR) {}
+  testAssert(result == 0, @"A separate process reloads named profiles, selection, default and independent settings");
+  [TerminalPreferences resetTerminalPreferences];
+  TerminalPreferences *base = [[[TerminalPreferences alloc] initWithProfileName:@"Default"] autorelease];
+  testAssert([TerminalPreferences terminalScrollbackLines] == 5000 && [base terminalScrollbackLines] == 1234,
+    @"Restore Defaults resets only the selected profile");
+  testAssert([TerminalPreferences deleteSelectedProfile] && [[original profileName] isEqual:@"Default"]
+    && [[night profileName] isEqual:@"Default"] && [[TerminalPreferences defaultProfileName] isEqual:@"Default"]
+    && [original isRunning], @"Deleting a profile falls back to Default without ending sessions");
+  testAssert(![TerminalPreferences deleteSelectedProfile] && ![TerminalPreferences renameSelectedProfile:@"Other"],
+    @"The built-in Default profile remains available");
+  [[original window] close]; [[night window] close];
+  [[app valueForKey:@"_preferences"] orderOut:nil]; [app release];
+}
+
 int main(int argc, const char **argv)
 {
   NSAutoreleasePool *pool = [NSAutoreleasePool new];
@@ -679,9 +749,24 @@ int main(int argc, const char **argv)
       && colorMatches([TerminalPreferences terminalForegroundColor],.2,.8,.6);
     [pool drain]; return ok ? 0 : 1;
   }
+  if ([[[NSProcessInfo processInfo] arguments] containsObject:@"--read-profiles"]) {
+    TerminalPreferences *base = [[[TerminalPreferences alloc] initWithProfileName:@"Default"] autorelease];
+    BOOL ok = [[TerminalPreferences defaultProfileName] isEqual:@"Evening"]
+      && [[TerminalPreferences selectedProfileName] isEqual:@"Evening"]
+      && [TerminalPreferences terminalColumns] == 92 && [base terminalColumns] == 80
+      && colorMatches([TerminalPreferences terminalCursorColor],0,0,1)
+      && colorMatches([base terminalCursorColor],1,0,0);
+    [pool drain]; return ok ? 0 : 1;
+  }
   NSString *directory = [NSString stringWithFormat:@"/tmp/terminal-tests-%d",getpid()];
   [[NSFileManager defaultManager] createDirectoryAtPath:directory withIntermediateDirectories:YES attributes:nil error:NULL];
   NSUserDefaults *defaults = [NSUserDefaults standardUserDefaults];
+  NSMutableDictionary *savedProfiles = [NSMutableDictionary dictionary];
+  NSArray *profileKeys = [NSArray arrayWithObjects:@"TerminalProfiles", @"TerminalSelectedProfile", @"TerminalDefaultProfile", nil];
+  for (NSString *key in profileKeys) {
+    id value = [defaults objectForKey:key]; if (value) [savedProfiles setObject:value forKey:key];
+    [defaults removeObjectForKey:key];
+  }
   id saved = [[defaults objectForKey:@"TerminalSettings"] retain];
   [defaults setObject:[NSDictionary dictionaryWithObjectsAndKeys:@"bad",@"fontSize", @"no-font",@"fontName",
     @"bad",@"foreground",[NSNumber numberWithInt:-1],@"scrollbackLines",nil] forKey:@"TerminalSettings"];
@@ -693,8 +778,13 @@ int main(int argc, const char **argv)
   testInitialSizeAndPrograms(directory);
   testInputAndHistory();
   testPreferencesAndRendering(directory);
+  testProfiles(directory);
   [TerminalView waitForChildCleanup];
   if (saved) [defaults setObject:saved forKey:@"TerminalSettings"]; else [defaults removeObjectForKey:@"TerminalSettings"];
+  for (NSString *key in profileKeys) {
+    id value = [savedProfiles objectForKey:key];
+    if (value) [defaults setObject:value forKey:key]; else [defaults removeObjectForKey:key];
+  }
   [defaults synchronize]; [saved release];
   NSLog(@"%lu checks, %lu failures; rendered evidence in %@",(unsigned long)checks,(unsigned long)failures,directory);
   [pool drain]; return failures ? 1 : 0;

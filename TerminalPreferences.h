@@ -24,27 +24,50 @@
 
 #import <AppKit/AppKit.h>
 extern NSString *TerminalPreferencesDidChangeNotification;
+/** Class accessors edit the selected profile; instances read a particular profile. */
 @interface TerminalPreferences : NSObject
+{
+    NSString *_profileName;
+}
++ (NSArray *)profileNames;
++ (NSString *)selectedProfileName;
++ (void)selectProfile:(NSString *)name;
++ (NSString *)defaultProfileName;
++ (void)setDefaultProfileName:(NSString *)name;
++ (BOOL)duplicateSelectedProfileWithName:(NSString *)name;
++ (BOOL)renameSelectedProfile:(NSString *)name;
++ (BOOL)deleteSelectedProfile;
+- (id)initWithProfileName:(NSString *)name;
 + (BOOL)isTerminalFont:(NSFont *)font;
 + (NSFont *)terminalFont;
+- (NSFont *)terminalFont;
 
 + (void)setTerminalFont:(NSFont *)font;
 + (NSColor *)terminalForegroundColor;
+- (NSColor *)terminalForegroundColor;
 + (NSColor *)terminalBackgroundColor;
+- (NSColor *)terminalBackgroundColor;
 + (void)setTerminalForegroundColor:(NSColor *)foreground backgroundColor:(NSColor *)background;
 + (NSColor *)terminalCursorColor;
+- (NSColor *)terminalCursorColor;
 + (void)setTerminalCursorColor:(NSColor *)color;
 /** Cursor shape: 0 program controlled, 1 block, 2 outline, 3 line, 4 underline. */
 + (NSInteger)terminalCursorShape;
+- (NSInteger)terminalCursorShape;
 + (void)setTerminalCursorShape:(NSInteger)shape;
 + (NSUInteger)terminalScrollbackLines;
+- (NSUInteger)terminalScrollbackLines;
 + (void)setTerminalScrollbackLines:(NSUInteger)lines;
 + (NSUInteger)terminalColumns;
+- (NSUInteger)terminalColumns;
 + (NSUInteger)terminalRows;
+- (NSUInteger)terminalRows;
 + (void)setTerminalColumns:(NSUInteger)columns rows:(NSUInteger)rows;
 + (BOOL)terminalAudibleBell;
+- (BOOL)terminalAudibleBell;
 + (void)setTerminalAudibleBell:(BOOL)enabled;
 + (BOOL)terminalCursorBlink;
+- (BOOL)terminalCursorBlink;
 + (void)setTerminalCursorBlink:(BOOL)enabled;
 + (void)resetTerminalPreferences;
 @end

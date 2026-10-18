@@ -5,14 +5,15 @@ working display. The GNUstep make target builds both the application and test
 executable. Tests require `vim`, `less`, `top`, `python3`, and `seq` for the
 interactive integration scenarios (Vim is conditional on `/usr/bin/vim`).
 Tests use their own `TerminalTests` defaults domain and restore its prior
-Terminal settings. Temporary files and rendering PNGs are left in the printed
+Terminal settings and profile keys. Temporary files and rendering PNGs are left in the printed
 `/tmp/terminal-tests-PID` directory for inspection.
 
 Verified on GNU/Linux with the configured GNUstep Make 2.9.3 / Base / GUI and
-Xvfb on 2026-10-17: **92 checks, 0 failures**. The application build completed
+Xvfb on 2026-10-18: **132 checks, 0 failures**. The application build completed
 without compiler warnings. GNUstep emitted runtime diagnostics about installed
 Color-picker duplicates, button-cell method signatures, and test service names;
-these did not prevent native panel actions or pixel verification.
+the X11 backend also emitted RenderBadPicture diagnostics during teardown.
+These did not prevent native panel actions or pixel verification.
 
 The suite covers:
 
@@ -38,6 +39,9 @@ The suite covers:
 - Invalid saved values, history limits, Restore Defaults, new-window settings,
   and settings reloaded by a separate executable process.
 - Dynamic Open Terminal / Close Terminal titles and same-session preservation.
+- Named profile copies, isolated live updates, default and explicit new-window
+  profiles, applying profiles without restarting shells, rename/delete behavior,
+  invalid names, per-profile reset, and persistence across processes.
 
 A separate smoke run launched `Prompt.app/Prompt --directory /tmp` on an
 isolated display, typed a real shell command, opened Help and Preferences using

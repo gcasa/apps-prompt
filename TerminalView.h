@@ -20,6 +20,7 @@
   NSMutableArray *_history;
   NSMutableData *_pendingInput;
   NSString *_directory;
+  NSString *_profileName;
   NSFont *_font;
   NSFont *_boldFont;
   NSColor *_foregroundColor, *_backgroundColor, *_cursorColor;
@@ -56,6 +57,9 @@
 
 /** Content size for a character grid using the current font. */
 - (NSSize)contentSizeForColumns:(NSUInteger)columns rows:(NSUInteger)rows;
+
+- (NSString *)profileName;
+- (void)setProfileName:(NSString *)name;
 
 - (BOOL)isRunning;
 

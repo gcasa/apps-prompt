@@ -9,7 +9,9 @@
   NSWindow *_lastTerminalWindow; /* owned by _windows */
   NSButton *_fontButton, *_bell, *_blink;
   NSColorWell *_foreground, *_background, *_cursor;
-  NSPopUpButton *_shape;
+  NSPopUpButton *_shape, *_profiles;
+  NSTextField *_profileName, *_profileStatus;
+  NSButton *_renameProfile, *_deleteProfile, *_defaultProfile;
   NSTextField *_history, *_columns, *_rows;
 }
 - (void)buildMenus;
@@ -18,6 +20,13 @@
 - (BOOL)validateMenuItem:(NSMenuItem *)item;
 - (void)newTerminalInDirectory:(id)sender;
 - (TerminalView *)openDirectory:(NSString *)directory;
+- (void)selectProfile:(id)sender;
+- (void)saveProfileCopy:(id)sender;
+- (void)renameProfile:(id)sender;
+- (void)deleteProfile:(id)sender;
+- (void)makeDefaultProfile:(id)sender;
+- (void)newTerminalWithProfile:(id)sender;
+- (void)applyProfile:(id)sender;
 - (void)showPreferences:(id)sender;
 - (void)chooseFont:(id)sender;
 - (void)changeFont:(id)sender;

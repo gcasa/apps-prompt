@@ -154,6 +154,7 @@ static NSUInteger cleanupCount;
 - (id)initWithFrame:(NSRect)frame
 {
   if ((self = [super initWithFrame:frame])) {
+    _profileName = [[TerminalPreferences defaultProfileName] copy];
     _master = _child = _session = -1;
     _selectionStart = _selectionEnd = -1;
     _cursorVisible = YES;
@@ -198,7 +199,7 @@ static NSUInteger cleanupCount;
   if (_terminal) vterm_free(_terminal);
   RELEASE(_font); RELEASE(_boldFont); RELEASE(_history);
   RELEASE(_foregroundColor); RELEASE(_backgroundColor); RELEASE(_cursorColor);
-  RELEASE(_pendingInput); RELEASE(_directory);
+  RELEASE(_pendingInput); RELEASE(_directory); RELEASE(_profileName);
 #ifdef TERMINAL_X11_RESIZE
   if (_resizeDisplay) XCloseDisplay((Display *)_resizeDisplay);
 #endif
@@ -214,31 +215,44 @@ static NSUInteger cleanupCount;
 
 - (void)ringBell { if (_audibleBell) NSBeep(); }
 
+- (NSString *)profileName { return _profileName; }
+
+- (void)setProfileName:(NSString *)name
+{
+  if (![[TerminalPreferences profileNames] containsObject:name]) return;
+  ASSIGN(_profileName, name);
+  [self preferencesChanged:nil];
+}
+
 - (void)preferencesChanged:(NSNotification *)notification
 {
-  ASSIGN(_font, [TerminalPreferences terminalFont]);
+  if (notification && [notification object] && ![[notification object] isEqual:_profileName]) return;
+  NSString *replacement = [[notification userInfo] objectForKey:@"replacementProfile"];
+  if (replacement) ASSIGN(_profileName, replacement);
+  TerminalPreferences *preferences = [[[TerminalPreferences alloc] initWithProfileName:_profileName] autorelease];
+  ASSIGN(_font, [preferences terminalFont]);
   NSFont *bold = [[NSFontManager sharedFontManager] convertFont:_font toHaveTrait:NSBoldFontMask];
   ASSIGN(_boldFont, bold ? bold : _font);
   _cellWidth = ceil([@"M" sizeWithAttributes:[NSDictionary dictionaryWithObject:_font forKey:NSFontAttributeName]].width);
   _cellHeight = ceil([_font ascender] - [_font descender]);
-  ASSIGN(_foregroundColor, [TerminalPreferences terminalForegroundColor]);
-  ASSIGN(_backgroundColor, [TerminalPreferences terminalBackgroundColor]);
-  ASSIGN(_cursorColor, [TerminalPreferences terminalCursorColor]);
-  _preferredCursorShape = [TerminalPreferences terminalCursorShape];
+  ASSIGN(_foregroundColor, [preferences terminalForegroundColor]);
+  ASSIGN(_backgroundColor, [preferences terminalBackgroundColor]);
+  ASSIGN(_cursorColor, [preferences terminalCursorColor]);
+  _preferredCursorShape = [preferences terminalCursorShape];
   VTermColor fg, bg;
   NSColor *color = [_foregroundColor colorUsingColorSpaceName:NSCalibratedRGBColorSpace];
   vterm_color_rgb(&fg, lround([color redComponent] * 255), lround([color greenComponent] * 255), lround([color blueComponent] * 255));
   color = [_backgroundColor colorUsingColorSpaceName:NSCalibratedRGBColorSpace];
   vterm_color_rgb(&bg, lround([color redComponent] * 255), lround([color greenComponent] * 255), lround([color blueComponent] * 255));
   vterm_screen_set_default_colors(_screen, &fg, &bg);
-  _scrollbackLimit = [TerminalPreferences terminalScrollbackLines];
+  _scrollbackLimit = [preferences terminalScrollbackLines];
   if ([_history count] > _scrollbackLimit) {
     [_history removeObjectsInRange:NSMakeRange(0, [_history count] - _scrollbackLimit)];
     _selectionStart = _selectionEnd = -1;
   }
   _scrollOffset = MIN(_scrollOffset, (NSInteger)[_history count]);
-  _audibleBell = [TerminalPreferences terminalAudibleBell];
-  _allowCursorBlink = [TerminalPreferences terminalCursorBlink];
+  _audibleBell = [preferences terminalAudibleBell];
+  _allowCursorBlink = [preferences terminalCursorBlink];
   _blinkOn = YES;
   _lastBlink = [NSDate timeIntervalSinceReferenceDate];
   [self resizeTerminal];

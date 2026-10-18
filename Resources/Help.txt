@@ -51,8 +51,21 @@ Preferences
 New window size sets the initial columns and rows in characters (2–1,000 each).
 It defaults to 80 columns by 25 rows and applies to newly opened sessions.
 Existing windows keep their current size.
-Other settings in Preferences (Command-comma) apply immediately to every open terminal and
-is saved for future launches. The Fonts button opens the native Fonts panel;
+Preferences (Command-comma) contains named profiles. Existing settings are
+preserved in the built-in Default profile. Select a profile to edit it; changes
+save automatically and apply immediately to terminals using that profile.
+To create a profile, enter a unique name in the field below the profile list
+and click Save Copy. The copy starts with the selected profile's settings.
+Use Rename to change its name, or Delete to remove it. Default cannot be
+renamed or deleted. Deleting a profile switches its terminals to Default.
+Use as Default chooses the profile for ordinary new windows and future launches.
+Open New Terminal opens the selected profile without changing that default.
+Apply to Current Terminal assigns the selected profile to the most recently
+active terminal, preserving its shell and window size. Selecting a profile in
+Preferences alone does not change any terminal's assignment.
+Each profile stores its font, colors, cursor, history, bell, blink and initial
+grid dimensions. Reducing history can discard older lines in its terminals.
+ The Fonts button opens the native Fonts panel;
 choose a fixed-pitch font from 6 through 72 points. Other choices are ignored
 with a beep. Changing font or window size resizes both emulator and PTY,
 notifies the foreground job via SIGWINCH, and preserves the shell session.
@@ -63,8 +76,8 @@ underline, or the shape requested by the program. Filled cursors draw the
 underlying character in contrasting ink. Blink cursor permits program-
 requested blinking in the active terminal only and is enabled by default.
 Inactive terminals show a steady cursor. Turn off Blink active cursor in
-Preferences for a steady cursor in every window. Audible bell controls BEL. Restore Defaults resets all
-terminal settings. Invalid saved values fall back to safe defaults.
+Preferences for a steady cursor in windows using that profile. Audible bell controls BEL.
+Restore Defaults resets only the selected profile’s settings. Invalid saved values fall back to safe defaults.
 
 Compatibility
 -------------

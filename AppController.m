@@ -38,6 +38,10 @@ static NSTextField *label(NSView *view, NSString *text, CGFloat y)
   return field;
 }
 
+@interface AppController (ProfileWindows)
+- (TerminalView *)openDirectory:(NSString *)directory profile:(NSString *)profile;
+@end
+
 @implementation AppController
 - (id)init
 {
@@ -92,14 +96,21 @@ static NSTextField *label(NSView *view, NSString *text, CGFloat y)
 
 - (TerminalView *)openDirectory:(NSString *)directory
 {
+  return [self openDirectory:directory profile:[TerminalPreferences defaultProfileName]];
+}
+
+- (TerminalView *)openDirectory:(NSString *)directory profile:(NSString *)profile
+{
+  TerminalPreferences *preferences = [[[TerminalPreferences alloc] initWithProfileName:profile] autorelease];
   NSWindow *window = [[NSWindow alloc] initWithContentRect:NSMakeRect(100, 100, 100, 100)
     styleMask:NSTitledWindowMask | NSClosableWindowMask | NSMiniaturizableWindowMask | NSResizableWindowMask
     backing:NSBackingStoreBuffered defer:NO];
   [window setReleasedWhenClosed:NO]; [window setMinSize:NSMakeSize(240, 140)];
   [window setTitle:[NSString stringWithFormat:@"Prompt — %@", directory]];
   TerminalView *terminal = [[TerminalView alloc] initWithFrame:[[window contentView] bounds]];
+  [terminal setProfileName:profile];
   [window setContentView:terminal];
-  [window setContentSize:[terminal contentSizeForColumns:[TerminalPreferences terminalColumns] rows:[TerminalPreferences terminalRows]]];
+  [window setContentSize:[terminal contentSizeForColumns:[preferences terminalColumns] rows:[preferences terminalRows]]];
   [terminal release];
   [window setDelegate:self]; [_windows addObject:window]; _lastTerminalWindow = window; [window release];
   [window makeKeyAndOrderFront:nil]; [window makeFirstResponder:terminal];
@@ -163,6 +174,13 @@ static NSTextField *label(NSView *view, NSString *text, CGFloat y)
 
 - (void)refreshPreferences
 {
+  [_profiles removeAllItems]; [_profiles addItemsWithTitles:[TerminalPreferences profileNames]];
+  [_profiles selectItemWithTitle:[TerminalPreferences selectedProfileName]];
+  [_profileName setStringValue:[TerminalPreferences selectedProfileName]];
+  BOOL builtIn = [[TerminalPreferences selectedProfileName] isEqual:@"Default"];
+  [_renameProfile setEnabled:!builtIn]; [_deleteProfile setEnabled:!builtIn];
+  [_defaultProfile setEnabled:![[TerminalPreferences selectedProfileName] isEqual:[TerminalPreferences defaultProfileName]]];
+  [_profileStatus setStringValue:[NSString stringWithFormat:@"New windows use: %@", [TerminalPreferences defaultProfileName]]];
   [_fontButton setTitle:[NSString stringWithFormat:@"%@ %.0f pt…", [[TerminalPreferences terminalFont] displayName],
     [[TerminalPreferences terminalFont] pointSize]]];
   [_foreground setColor:[TerminalPreferences terminalForegroundColor]];
@@ -179,7 +197,7 @@ static NSTextField *label(NSView *view, NSString *text, CGFloat y)
 - (void)showPreferences:(id)sender
 {
   if (!_preferences) {
-    _preferences = [[TerminalPreferencesPanel alloc] initWithContentRect:NSMakeRect(180, 180, 480, 500)
+    _preferences = [[TerminalPreferencesPanel alloc] initWithContentRect:NSMakeRect(180, 180, 720, 500)
       styleMask:NSTitledWindowMask | NSClosableWindowMask backing:NSBackingStoreBuffered defer:NO];
     [_preferences setTitle:@"Prompt Preferences"]; [_preferences setReleasedWhenClosed:NO];
     NSView *view = [_preferences contentView];
@@ -225,8 +243,85 @@ static NSTextField *label(NSView *view, NSString *text, CGFloat y)
     NSButton *reset = [[[NSButton alloc] initWithFrame:NSMakeRect(290, 20, 170, 32)] autorelease];
     [reset setTitle:@"Restore Defaults"]; [reset setTarget:self]; [reset setAction:@selector(restoreDefaults:)];
     [view addSubview:reset];
+    for (NSView *control in [view subviews]) {
+      NSPoint origin = [control frame].origin; origin.x += 240; [control setFrameOrigin:origin];
+    }
+    label(view, @"Profiles", 460);
+    _profiles = [[[NSPopUpButton alloc] initWithFrame:NSMakeRect(20, 422, 210, 28)] autorelease];
+    [_profiles setTarget:self]; [_profiles setAction:@selector(selectProfile:)]; [view addSubview:_profiles];
+    _profileName = [[[NSTextField alloc] initWithFrame:NSMakeRect(20, 382, 210, 26)] autorelease];
+    [_profileName setToolTip:@"Enter a unique name, then choose Save Copy or Rename."];
+    [view addSubview:_profileName];
+    NSArray *titles = [NSArray arrayWithObjects:@"Save Copy…", @"Rename", @"Delete…", @"Use as Default", @"Open New Terminal", @"Apply to Current Terminal", nil];
+    SEL actions[] = { @selector(saveProfileCopy:), @selector(renameProfile:), @selector(deleteProfile:),
+      @selector(makeDefaultProfile:), @selector(newTerminalWithProfile:), @selector(applyProfile:) };
+    for (i = 0; i < 6; i++) {
+      NSButton *button = [[[NSButton alloc] initWithFrame:NSMakeRect(20, 340 - i * 40, 210, 32)] autorelease];
+      [button setTitle:[titles objectAtIndex:i]]; [button setTarget:self]; [button setAction:actions[i]];
+      [view addSubview:button];
+      if (i == 1) _renameProfile = button;
+      if (i == 2) _deleteProfile = button;
+      if (i == 3) _defaultProfile = button;
+    }
+    _profileStatus = label(view, @"", 80); [_profileStatus setFrameSize:NSMakeSize(210, 50)];
+    NSTextField *hint = label(view, @"Enter a name above to Save Copy. Edits save automatically.", 20);
+    [hint setFrameSize:NSMakeSize(210, 55)];
   }
   [self refreshPreferences]; [_preferences makeKeyAndOrderFront:nil];
+}
+
+- (void)selectProfile:(id)sender
+{
+  [_preferences makeFirstResponder:nil];
+  [TerminalPreferences selectProfile:[_profiles titleOfSelectedItem]];
+  [self refreshPreferences];
+}
+
+- (void)profileNameError
+{
+  NSRunAlertPanel(@"Profile Name", @"Enter a unique name (1–80 characters) in the name field, without leading or trailing spaces.", @"OK", nil, nil);
+}
+
+- (void)saveProfileCopy:(id)sender
+{
+  [_preferences makeFirstResponder:nil];
+  if (![TerminalPreferences duplicateSelectedProfileWithName:[_profileName stringValue]]) { [self profileNameError]; return; }
+  [self refreshPreferences];
+}
+
+- (void)renameProfile:(id)sender
+{
+  [_preferences makeFirstResponder:nil];
+  if (![TerminalPreferences renameSelectedProfile:[_profileName stringValue]]) { [self profileNameError]; return; }
+  [self refreshPreferences];
+}
+
+- (void)deleteProfile:(id)sender
+{
+  NSString *name = [TerminalPreferences selectedProfileName];
+  if ([name isEqual:@"Default"]) return;
+  if (NSRunAlertPanel(@"Delete Profile", @"Delete “%@”? Terminals using it will switch to Default.",
+      @"Cancel", @"Delete", nil, name) != NSAlertAlternateReturn) return;
+  [TerminalPreferences deleteSelectedProfile]; [self refreshPreferences];
+}
+
+- (void)makeDefaultProfile:(id)sender
+{
+  [TerminalPreferences setDefaultProfileName:[TerminalPreferences selectedProfileName]];
+  [self refreshPreferences];
+}
+
+- (void)newTerminalWithProfile:(id)sender
+{
+  [_preferences makeFirstResponder:nil];
+  [self openDirectory:NSHomeDirectory() profile:[TerminalPreferences selectedProfileName]];
+}
+
+- (void)applyProfile:(id)sender
+{
+  [_preferences makeFirstResponder:nil];
+  if (!_lastTerminalWindow) { NSBeep(); return; }
+  [(TerminalView *)[_lastTerminalWindow contentView] setProfileName:[TerminalPreferences selectedProfileName]];
 }
 
 - (void)chooseFont:(id)sender
