@@ -1,6 +1,6 @@
 # GNUstep Prompt
 
-Independent, manual-reference-counted AppKit terminal using bundled libvterm
+Independent, manual-reference-counted AppKit VT100/VT220 terminal emulator using bundled libvterm
 0.3.3 and asynchronous, nonblocking POSIX PTY I/O. No Ycode libraries required.
 New windows default to 80 columns by 25 rows, with the history scroller on the left.
 Preferences supports named profiles for fonts, colors, cursor behavior, history,
@@ -42,4 +42,4 @@ classes, defaults domain and controller. See [COPYING](COPYING) and the unmodifi
 
 <img width="739" height="957" alt="prompt_test" src="https://github.com/user-attachments/assets/a829e762-1b43-4bf3-86b3-bd5f5d91b5c2" />
 
-The Prompt application adheres well to ANSI and VT100-VT220 standards thanks to libvtterm.
+The Prompt application supports ANSI and VT100/VT220 terminal emulation through libvterm.
