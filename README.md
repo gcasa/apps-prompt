@@ -37,3 +37,9 @@ Original copyright/author notices are retained. The standalone app has its own
 classes, defaults domain and controller. See [COPYING](COPYING) and the unmodified
 [libvterm MIT license](Terminal/libvterm/LICENSE). Vendored engine provenance:
 [Terminal/README.txt](Terminal/README.txt).
+
+## Screenshot
+
+<img width="739" height="957" alt="prompt_test" src="https://github.com/user-attachments/assets/a829e762-1b43-4bf3-86b3-bd5f5d91b5c2" />
+
+The Prompt application adheres well to ANSI and VT100-VT220 standards thanks to libvtterm.
