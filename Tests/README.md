@@ -54,3 +54,40 @@ Unicode script, physical trackpad hardware, other GNUstep backends, or non-Linux
 runtime behavior. See `Resources/Help.txt` for supported behavior and known
 limitations. This is a text terminal, without graphics protocols, input-method
 composition UI, or wrapped-line scrollback reflow.
+
+## Compiler regression (no display required)
+
+Run `Tests/check-compile.sh`, or select a compiler with `CC=gcc-16` /
+`CC=clang`. Repeat with `USE_SYSTEM_LIBVTERM=yes` to check installed headers.
+This compiles the real TerminalView implementation and emits method metadata;
+`-fsyntax-only` is insufficient to exercise the bit-field encoding failure.
+Warnings are errors except for the pre-existing unused-result warnings in PTY
+error handling. Clang installations may need
+`OBJCFLAGS=-I$(gcc -print-file-name=include)` to find GNU runtime headers.
+
+The GUI suite also checks boolean/numeric property forwarding and ignored OSC
+string properties through libvterm's real parser/callback path.
+
+### Verification on 2026-10-23
+
+- x86_64 Linux, GCC 13.3.0: original TerminalView reproduced the missing-method
+  warning and all four bit-field diagnostics. Adding only the declaration
+  removed the warning, but left all four encoding errors. Both fixes together
+  compiled successfully.
+- The headless compile regression passed with GCC 13.3.0 and Clang 18.1.3,
+  each with bundled and installed libvterm 0.3.3 headers.
+- Application and test executable compilation/linking were checked in both
+  library modes. System linking was verified with `ldd` (`libvterm.so.0`);
+  system build object lists contained no bundled libvterm objects.
+- GCC 16 is not available from the configured Ubuntu package sources. Its
+  reported failure is therefore addressed by reproducing the same diagnostic
+  with older GCC, not by a claimed GCC 16 test run.
+- The sandbox's GNUstep Base cannot read its process command line from /proc;
+  application packaging fails in GNUstep's plist/desktop helper steps. GUI
+  execution also hits restricted socket creation, so the GUI regression suite
+  (including the new property checks) has **not passed in this environment**.
+  Existing unused-result warnings in PTY error handling and GCC warnings in
+  bundled libvterm remain outside this change.
+
+References: [GCC PR objc/122909](https://gcc.gnu.org/bugzilla/show_bug.cgi?id=122909),
+[libvterm provenance](../Terminal/README.txt).

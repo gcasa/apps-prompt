@@ -39,7 +39,9 @@
 
 - (void)queueBytes:(const char *)bytes length:(size_t)length;
 
-- (int)property:(VTermProp)property value:(VTermValue *)value;
+- (int)property:(VTermProp)property value:(int)value;
+
+- (BOOL)cellAtRow:(NSInteger)row column:(int)column cell:(VTermScreenCell *)cell;
 
 - (int)pushLine:(int)columns cells:(const VTermScreenCell *)cells;
 
@@ -82,7 +84,25 @@ terminal_cursor (VTermPos pos, VTermPos old, int visible, void *user)
 static int
 terminal_property (VTermProp property, VTermValue *value, void *user)
 {
-  return [(TerminalView *)user property:property value:value];
+  /* Keep VTermValue out of Objective-C method encodings: its string member
+   * contains _Bool bit-fields which GCC cannot encode (PR objc/122909).
+   * Read only the active union member for properties handled by the view. */
+  int number;
+  switch (property)
+    {
+    case VTERM_PROP_CURSORVISIBLE:
+    case VTERM_PROP_CURSORBLINK:
+    case VTERM_PROP_ALTSCREEN:
+      number = value->boolean;
+      break;
+    case VTERM_PROP_CURSORSHAPE:
+    case VTERM_PROP_MOUSE:
+      number = value->number;
+      break;
+    default:
+      return 1;
+    }
+  return [(TerminalView *)user property:property value:number];
 }
 
 static int
@@ -478,22 +498,22 @@ static NSUInteger cleanup_count;
       }
 }
 
-- (int)property:(VTermProp)property value:(VTermValue *)value
+- (int)property:(VTermProp)property value:(int)value
 {
   if (property == VTERM_PROP_CURSORVISIBLE)
-    _cursorVisible = value->boolean;
+    _cursorVisible = value;
   if (property == VTERM_PROP_CURSORBLINK)
-    _cursorBlink = value->boolean;
+    _cursorBlink = value;
   if (property == VTERM_PROP_CURSORSHAPE)
-    _cursorShape = value->number;
+    _cursorShape = value;
   if (property == VTERM_PROP_ALTSCREEN)
     {
-      _alternateScreen = value->boolean;
+      _alternateScreen = value;
       _scrollOffset = 0;
       _selectionStart = _selectionEnd = -1;
     }
   if (property == VTERM_PROP_MOUSE)
-    _mouseReporting = value->number != VTERM_PROP_MOUSE_NONE;
+    _mouseReporting = value != VTERM_PROP_MOUSE_NONE;
   /* Only visual properties need a repaint; mouse mode and OSC do not. */
   if (property == VTERM_PROP_ALTSCREEN)
     [self setNeedsDisplay:YES];
