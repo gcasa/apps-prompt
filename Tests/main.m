@@ -128,6 +128,21 @@ test_terminal (NSString *temporaryDirectory)
       [[TerminalTestView alloc] initWithFrame:NSMakeRect (0, 0, 800, 400)];
   test_assert (![view isRunning],
                @"Constructing a terminal does not start a shell");
+  /* Exercise the C-to-Objective-C property bridge, including ignored strings. */
+  terminal_feed (view, @"\033[?25l\033[?12l\033[4 q\033[?1000h");
+  test_assert (![[view valueForKey:@"_cursorVisible"] boolValue]
+                   && ![[view valueForKey:@"_cursorBlink"] boolValue]
+                   && [[view valueForKey:@"_cursorShape"] intValue]
+                          == VTERM_PROP_CURSORSHAPE_UNDERLINE
+                   && [[view valueForKey:@"_mouseReporting"] boolValue],
+               @"Property bridge forwards boolean and numeric union members");
+  terminal_feed (view, @"\033]2;ignored title\007\033[?25h\033[?12h\033[2 q\033[?1000l");
+  test_assert ([[view valueForKey:@"_cursorVisible"] boolValue]
+                   && [[view valueForKey:@"_cursorBlink"] boolValue] == NO
+                   && [[view valueForKey:@"_cursorShape"] intValue]
+                          == VTERM_PROP_CURSORSHAPE_BLOCK
+                   && ![[view valueForKey:@"_mouseReporting"] boolValue],
+               @"Property bridge ignores string properties and restores modes");
   terminal_feed (view, @"abc\rZ\033[2;4HQ\033[1;2H\033[K");
   VTermScreenCell cell;
   [view cellAtRow:0 column:0 cell:&cell];

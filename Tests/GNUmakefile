@@ -4,8 +4,11 @@ endif
 include $(GNUSTEP_MAKEFILES)/common.make
 TOOL_NAME = TerminalTests
 TerminalTests_OBJC_FILES = main.m ../TerminalView.m ../TerminalPreferences.m ../AppController.m
-TerminalTests_C_FILES = $(wildcard ../Terminal/libvterm/src/*.c)
-TerminalTests_INCLUDE_DIRS = -I.. -I../Terminal/libvterm/include
+VTERM_ROOT = ..
+include ../vterm.make
+TerminalTests_C_FILES = $(VTERM_C_FILES)
+TerminalTests_INCLUDE_DIRS = -I.. $(VTERM_INCLUDE_DIRS)
+TerminalTests_TOOL_LIBS += $(VTERM_LIBS)
 TerminalTests_CFLAGS = -std=c99
 # X11 supplies mouse state while the window manager owns the resize drag.
 ifneq ($(shell pkg-config --exists x11 && echo yes),)

@@ -10,7 +10,7 @@
 #define _TERMINALVIEW_H_
 
 #import <AppKit/AppKit.h>
-#include "Terminal/libvterm/include/vterm.h"
+#include <vterm.h>
 
 /** An independent interactive terminal. Screen and nonblocking PTY I/O use the
  * main run loop. */
