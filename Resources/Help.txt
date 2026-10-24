@@ -86,7 +86,7 @@ Restore Defaults resets only the selected profile’s settings. Invalid saved va
 
 Compatibility
 -------------
-The bundled libvterm 0.3.3 engine handles ANSI/VT100 and substantial VT220/
+The application-owned Objective-C engine handles ANSI/VT100 and substantial VT220/
 xterm text behavior: cursor motion, erase, insert/delete, scroll regions,
 saved cursors, alternate screens, DEC graphics, application cursor/keypad,
 function keys, device/status queries, mouse reporting, bracketed paste,
@@ -116,5 +116,6 @@ Copyright (C) 2026 Free Software Foundation (terminal view), and
 Copyright (C) 2025 Free Software Foundation; author Gregory Casamento
 (preferences). This standalone application uses GPL version 2 or later;
 see the bundled COPYING. It has no runtime dependency on Ycode classes.
-libvterm is Copyright Paul Evans and contributors, MIT licensed; see
-libvterm-LICENSE.txt in this bundle. Source provenance is in Terminal/README.txt.
+The engine is adapted from GNUstep Terminal under GPL version 3 or later (COPYING.engine),
+with inspiration from libvterm by Paul Evans and contributors. No libvterm
+library is bundled. Source provenance is in Terminal/README.txt.

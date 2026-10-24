@@ -1,4 +1,10 @@
 /*
+ * This file is distributed under the GNU General Public License, version 3
+ * or later. It comes WITHOUT ANY WARRANTY, including MERCHANTABILITY or
+ * FITNESS FOR A PARTICULAR PURPOSE. See <https://www.gnu.org/licenses/>.
+ */
+
+/*
    Copyright (C) 2026 Free Software Foundation
 
    Adapted from Ycode for standalone Terminal. Distributed under the GNU General
@@ -10,14 +16,14 @@
 #define _TERMINALVIEW_H_
 
 #import <AppKit/AppKit.h>
-#include "Terminal/libvterm/include/vterm.h"
+#import "Terminal/TerminalParser_VT100.h"
 
 /** An independent interactive terminal. Screen and nonblocking PTY I/O use the
  * main run loop. */
-@interface TerminalView : NSView
+@interface TerminalView : NSView <TerminalScreen>
 {
-  VTerm *_terminal;
-  VTermScreen *_screen;
+  TerminalParser_VT100 *_terminal;
+  TerminalPosition _cursorPosition;
   NSMutableArray *_history;
   NSMutableData *_pendingInput;
   NSString *_directory;
@@ -47,6 +53,7 @@
   int _cursorShape;
   NSTimeInterval _lastBlink;
 }
+
 /** Starts an interactive shell in directory. Repeated calls preserve a running
  * shell. */
 
@@ -80,5 +87,6 @@
 - (void)sendData:(NSData *)data;
 
 - (NSString *)screenText;
+
 @end
 #endif

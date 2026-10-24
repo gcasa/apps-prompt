@@ -1,4 +1,10 @@
 /*
+ * This file is distributed under the GNU General Public License, version 3
+ * or later. It comes WITHOUT ANY WARRANTY, including MERCHANTABILITY or
+ * FITNESS FOR A PARTICULAR PURPOSE. See <https://www.gnu.org/licenses/>.
+ */
+
+/*
    Project: Ycode
 
    Copyright (C) 2025 Free Software Foundation
@@ -52,12 +58,13 @@ test_assert (BOOL ok, NSString *message)
 
 - (BOOL)cellAtRow:(NSInteger)row
            column:(int)column
-             cell:(VTermScreenCell *)cell;
+             cell:(TerminalGlyph *)cell;
 
 - (void)queueBytes:(const char *)bytes length:(size_t)length;
 
 - (NSPasteboard *)pasteboard;
 - (void)advanceBlink;
+
 @end
 
 @interface TerminalTestView : TerminalView
@@ -66,6 +73,7 @@ test_assert (BOOL ok, NSString *message)
 }
 
 - (NSData *)takeOutput;
+
 @end
 @implementation TerminalTestView
 
@@ -77,7 +85,7 @@ test_assert (BOOL ok, NSString *message)
 - (void)queueBytes:(const char *)bytes length:(size_t)length
 {
   if (!_captured)
-    _captured = [NSMutableData new];
+    _captured = [[NSMutableData alloc] init];
   [_captured appendBytes:bytes length:length];
   [super queueBytes:bytes length:length];
 }
@@ -92,8 +100,9 @@ test_assert (BOOL ok, NSString *message)
 - (void)dealloc
 {
   RELEASE (_captured);
-  [super dealloc];
+  DEALLOC;
 }
+
 @end
 
 static void
@@ -124,12 +133,61 @@ test_terminal (NSString *temporaryDirectory)
       = RETAIN ([defaults objectForKey:@"TerminalSettings"]);
   [TerminalPreferences resetTerminalPreferences];
 
+  /* Verify the application-owned parser's Prompt integration independently. */
+  TerminalTestView *engineView = [[TerminalTestView alloc]
+      initWithFrame:NSMakeRect (0, 0, 500, 240)];
+  TerminalParser_VT100 *engine = [engineView valueForKey:@"_terminal"];
+  terminal_feed (engineView, @"\033[?1004h");
+  [engine focusChanged:YES];
+  [engine focusChanged:NO];
+  test_assert ([[engineView takeOutput] isEqual:
+      [@"\033[I\033[O" dataUsingEncoding:NSUTF8StringEncoding]],
+      @"Focus reporting follows the requested terminal mode");
+  terminal_feed (engineView, @"\033[6 q");
+  test_assert ([[engineView valueForKey:@"_cursorShape"] intValue]
+                   == TerminalCursorBar
+               && ![[engineView valueForKey:@"_cursorBlink"] boolValue],
+               @"DECSCUSR selects a steady bar cursor");
+  terminal_feed (engineView, @"\033[3 q");
+  test_assert ([[engineView valueForKey:@"_cursorShape"] intValue]
+                   == TerminalCursorUnderline
+               && [[engineView valueForKey:@"_cursorBlink"] boolValue],
+               @"DECSCUSR selects a blinking underline cursor");
+  terminal_feed (engineView, @"\033[4:2mD\033[24mS");
+  TerminalGlyph engineCell;
+  [engineView cellAtRow:0 column:0 cell:&engineCell];
+  test_assert ((engineCell.attributes & TerminalDoubleUnderline) != 0,
+               @"Colon-form SGR retains double underline");
+  [engineView cellAtRow:0 column:1 cell:&engineCell];
+  test_assert (!(engineCell.attributes
+                  & (TerminalUnderline | TerminalDoubleUnderline)),
+               @"SGR 24 clears both underline styles");
+  terminal_feed (engineView, @"\033[?1002h\033[?1006h");
+  [engine mouseRow:1 column:2 button:1 pressed:YES modifiers:0];
+  [engine mouseRow:2 column:3 button:0 pressed:NO modifiers:0];
+  [engine mouseRow:2 column:3 button:1 pressed:NO modifiers:0];
+  test_assert ([[engineView takeOutput] isEqual:
+      [@"\033[<0;3;2M\033[<32;4;3M\033[<0;4;3m"
+          dataUsingEncoding:NSUTF8StringEncoding]],
+      @"SGR mouse mode reports press, drag, and release");
+  terminal_feed (engineView, @"\033c");
+  [engine focusChanged:YES];
+  [engine mouseRow:3 column:4 button:1 pressed:YES modifiers:0];
+  test_assert ([[engineView takeOutput] length] == 0
+               && ![[engineView valueForKey:@"_mouseReporting"] boolValue],
+               @"Hard reset disables focus and mouse reporting");
+  terminal_feed (engineView, @"\033[?1049h\033cprimary");
+  test_assert (![[engineView valueForKey:@"_alternateScreen"] boolValue]
+               && [[engineView screenText] hasPrefix:@"primary"],
+               @"Hard reset returns to the primary screen");
+  RELEASE (engineView);
+
   TerminalTestView *view =
       [[TerminalTestView alloc] initWithFrame:NSMakeRect (0, 0, 800, 400)];
   test_assert (![view isRunning],
                @"Constructing a terminal does not start a shell");
   terminal_feed (view, @"abc\rZ\033[2;4HQ\033[1;2H\033[K");
-  VTermScreenCell cell;
+  TerminalGlyph cell;
   [view cellAtRow:0 column:0 cell:&cell];
   test_assert (cell.chars[0] == 'Z',
                @"Terminal carriage return overwrites the current line");
@@ -143,8 +201,8 @@ test_terminal (NSString *temporaryDirectory)
   [view cellAtRow:0 column:0 cell:&cell];
   test_assert (
       cell.chars[0] == 'C' && cell.fg.rgb.red == 12 && cell.fg.rgb.green == 34
-          && cell.fg.rgb.blue == 56 && cell.bg.indexed.idx == 196
-          && cell.attrs.bold && cell.attrs.underline,
+          && cell.fg.rgb.blue == 56 && cell.bg.index == 196
+          && (cell.attributes & TerminalBold) && (cell.attributes & TerminalUnderline),
       @"Fragmented SGR supports truecolor, indexed color, bold, and underline");
   terminal_feed (view, @"\033[0m\033[2J\033[Hnormal\033[?1049h\033[Halternate");
   test_assert ([[view screenText] hasPrefix:@"alternate"],
@@ -484,6 +542,7 @@ color_matches (NSColor *color, double r, double g, double b)
 }
 
 @interface FractionalWheel : NSObject
+
 @end
 @implementation FractionalWheel
 - (CGFloat)deltaY
@@ -495,16 +554,21 @@ color_matches (NSColor *color, double r, double g, double b)
 {
   return NSShiftKeyMask;
 }
+
 @end
 
 static void
 test_preferences_and_rendering (NSString *directory)
 {
-  AppController *app = [AppController new];
+  AppController *app = [[AppController alloc] init];
   [app buildMenus];
   [app showPreferences:nil];
   TerminalView *terminal = [app openDirectory:directory];
   RETAIN (terminal);
+  [terminal sendData:[@"stty -echo; stty size\r"
+      dataUsingEncoding:NSUTF8StringEncoding]];
+  test_assert (terminal_wait (terminal, @"25 80"),
+               @"Mapped terminal reports the configured 80 by 25 PTY size");
   test_assert ([[terminal valueForKey:@"_columns"] intValue] == 80 &&
                    [[terminal valueForKey:@"_rows"] intValue] == 25,
                @"New terminal opens with an 80 by 25 grid");
@@ -664,7 +728,7 @@ test_preferences_and_rendering (NSString *directory)
   int i;
   for (i = 0; i < 100; i++)
     terminal_feed (terminal, @"history\r\n");
-  FractionalWheel *wheel = [FractionalWheel new];
+  FractionalWheel *wheel = [[FractionalWheel alloc] init];
   for (i = 0; i < 4; i++)
     [terminal scrollWheel:(NSEvent *)wheel];
   RELEASE (wheel);
@@ -703,6 +767,10 @@ test_preferences_and_rendering (NSString *directory)
   [app changeDimensions:columns];
   NSSize previousSize = [[terminal window] frame].size;
   TerminalView *sized = [app openDirectory:directory];
+  [sized sendData:[@"stty -echo; stty size\r"
+      dataUsingEncoding:NSUTF8StringEncoding]];
+  test_assert (terminal_wait (sized, @"35 100"),
+               @"Mapped terminal reports custom dimensions through stty");
   test_assert ([[sized valueForKey:@"_columns"] intValue] == 100 &&
                    [[sized valueForKey:@"_rows"] intValue] == 35,
                @"New sessions use the configured character columns and rows");
@@ -956,6 +1024,7 @@ test_input_and_history (void)
 @public
   NSUInteger fullInvalidations, partialInvalidations;
 }
+
 @end
 @implementation CursorTestView
 - (BOOL)isRunning
@@ -975,6 +1044,7 @@ test_input_and_history (void)
   partialInvalidations++;
   [super setNeedsDisplayInRect:rect];
 }
+
 @end
 
 static BOOL
@@ -1106,7 +1176,7 @@ test_profiles (NSString *directory)
   [TerminalPreferences selectProfile:@"Default"];
   [TerminalPreferences resetTerminalPreferences];
   [TerminalPreferences setTerminalScrollbackLines:1234];
-  AppController *app = [AppController new];
+  AppController *app = [[AppController alloc] init];
   TerminalView *original = [app openDirectory:directory];
   pid_t pid = [[original valueForKey:@"_child"] intValue];
   [app showPreferences:nil];
@@ -1220,7 +1290,7 @@ test_close_on_exit (NSString *directory)
 {
   [TerminalPreferences selectProfile:@"Default"];
   [TerminalPreferences resetTerminalPreferences];
-  AppController *app = [AppController new];
+  AppController *app = [[AppController alloc] init];
   [app showPreferences:nil];
   TerminalView *kept = RETAIN ([app openDirectory:directory]);
   test_assert (![TerminalPreferences terminalCloseOnExit],

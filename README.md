@@ -1,7 +1,6 @@
 # GNUstep Prompt
 
-Independent, manual-reference-counted AppKit VT100/VT220 terminal emulator using bundled libvterm
-0.3.3 and asynchronous, nonblocking POSIX PTY I/O. No Ycode libraries required.
+Independent, manual-reference-counted AppKit VT100/VT220 terminal emulator using the application-owned Objective-C engine from GNUstep Terminal and asynchronous, nonblocking POSIX PTY I/O. No Ycode libraries required.
 New windows default to 80 columns by 25 rows, with the history scroller on the left.
 Preferences supports named profiles for fonts, colors, cursor behavior, history,
 bell, initial window dimensions, and automatic window closing on shell exit. Save copies, rename or delete profiles,
@@ -21,7 +20,7 @@ make check
 ```
 
 Dependencies: GNUstep Make, Base and GUI, an Objective-C compiler, a GUI backend,
-and POSIX UNIX 98 PTYs. libvterm is included; no network downloads are needed.
+and POSIX UNIX 98 PTYs. The engine is included; no network downloads are needed.
 `make install` uses the standard GNUstep application target (optional).
 Prompt retains the existing preferences domain so saved settings carry over.
 Preferences use the separate `io.github.gcasa.apps-terminal` domain. GAP
@@ -34,12 +33,12 @@ and compatibility limits. Help is also available from the application menu.
 
 TerminalView and preference storage were adapted from Ycode under GPL-2.0-or-later.
 Original copyright/author notices are retained. The standalone app has its own
-classes, defaults domain and controller. See [COPYING](COPYING) and the unmodified
-[libvterm MIT license](Terminal/libvterm/LICENSE). Vendored engine provenance:
+classes, defaults domain and controller. The emulation engine is adapted from GNUstep Terminal under GPL-3.0-or-later,
+with inspiration from libvterm. See [COPYING](COPYING) and [COPYING.engine](COPYING.engine). Engine provenance:
 [Terminal/README.txt](Terminal/README.txt).
 
 ## Screenshot
 
 <img width="739" height="957" alt="prompt_test" src="https://github.com/user-attachments/assets/a829e762-1b43-4bf3-86b3-bd5f5d91b5c2" />
 
-The Prompt application supports ANSI and VT100/VT220 terminal emulation through libvterm.
+The Prompt application supports ANSI and VT100/VT220 terminal emulation through its application-owned engine.

@@ -9,13 +9,17 @@ Terminal settings and profile keys. Temporary files and rendering PNGs are left 
 `/tmp/terminal-tests-PID` directory for inspection.
 
 Verified on GNU/Linux with the configured GNUstep Make 2.9.3 / Base / GUI and
-Xvfb on 2026-10-18: **132 checks, 0 failures**. The application build completed
+Xvfb with Window Maker on 2026-10-23: **149 checks, 0 failures**. The application build completed
 without compiler warnings. GNUstep emitted runtime diagnostics about installed
 Color-picker duplicates, button-cell method signatures, and test service names;
 the X11 backend also emitted RenderBadPicture diagnostics during teardown.
 These did not prevent native panel actions or pixel verification.
 
 The suite covers:
+
+- Application-owned engine integration: focus reporting, program-selected
+  cursor shape/blink, double underline, mouse press/drag/release, and hard reset
+  of reporting modes and the alternate screen.
 
 - Fragmented ANSI and UTF-8, wide/combining characters, DEC graphics, cursor
   addressing, erase/insert/delete, scroll regions, alternate screens, truecolor
@@ -36,6 +40,8 @@ The suite covers:
 - Pixel checks for all five cursor choices, contrasting text under a filled
   block, default foreground/background colors, and preserved explicit ANSI red.
 - New windows use an 80 by 25 grid and place the history scroller on the left.
+- Mapped windows report default and custom grid dimensions through `stty size`,
+  including window-manager resize-increment constraints.
 - Invalid saved values, history limits, Restore Defaults, new-window settings,
   and settings reloaded by a separate executable process.
 - Dynamic Open Terminal / Close Terminal titles and same-session preservation.

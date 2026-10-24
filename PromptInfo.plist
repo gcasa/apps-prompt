@@ -1,6 +1,6 @@
 {
   ApplicationName = "Prompt";
-  ApplicationDescription = "A native VT100/VT220 terminal emulator for GNUstep powered by libvterm";
+  ApplicationDescription = "A native VT100/VT220 terminal emulator for GNUstep with an application-owned emulation engine";
   ApplicationRelease = "1.0";
   NSAppVersion = "1.0";
   CFBundleName = "Prompt";
@@ -10,10 +10,10 @@
   Authors = (
     "Gregory Casamento",
     "Terminal view and preferences adapted from Ycode",
-    "libvterm 0.3.3: Paul Evans and contributors"
+    "Emulation engine inspired by libvterm (Paul Evans and contributors)"
   );
   URL = "https://github.com/gcasa/apps-prompt";
   Copyright = "Copyright (C) 2025-2026 Free Software Foundation";
   NSHumanReadableCopyright = "Copyright (C) 2025-2026 Free Software Foundation";
-  CopyrightDescription = "Free software under the GNU GPL, version 2 or later.\nDistributed WITHOUT ANY WARRANTY.\nTerminal engine: libvterm 0.3.3, MIT licensed.\nCopyright (c) 2008 Paul Evans.\nSee COPYING and libvterm-LICENSE.txt in the app bundle.\nChoose Prompt Help for usage and compatibility details.";
+  CopyrightDescription = "Free software under the GNU GPL, version 2 or later.\nDistributed WITHOUT ANY WARRANTY.\nApplication-owned terminal engine inspired by libvterm.\nEngine adapted from GNUstep Terminal under GPL version 3 or later.\nSee COPYING and COPYING.engine in the app bundle.\nChoose Prompt Help for usage and compatibility details.";
 }
