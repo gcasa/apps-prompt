@@ -60,3 +60,17 @@ Unicode script, physical trackpad hardware, other GNUstep backends, or non-Linux
 runtime behavior. See `Resources/Help.txt` for supported behavior and known
 limitations. This is a text terminal, without graphics protocols, input-method
 composition UI, or wrapped-line scrollback reflow.
+
+## Compiler regression (no display required)
+
+Run `Tests/check-compile.sh` to use the configured GNUstep compiler, or select a compiler with `CC=gcc-16` /
+`CC=clang`. This compiles the real TerminalView implementation and emits
+Objective-C method metadata; `-fsyntax-only` does not exercise type encoding.
+Warnings are errors except for unused-result warnings in PTY error handling.
+Clang installations may need
+`OBJCFLAGS=-I$(gcc -print-file-name=include)` to find GNU runtime headers.
+
+The GUI suite also checks cursor and mouse mode forwarding and ignored OSC
+titles through the application-owned parser. The engine replacement removes
+the libvterm union that caused the original GCC bit-field encoding failure;
+system libvterm build modes no longer apply.

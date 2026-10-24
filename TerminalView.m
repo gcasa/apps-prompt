@@ -45,6 +45,8 @@
 
 - (void)queueBytes:(const char *)bytes length:(size_t)length;
 
+- (BOOL)cellAtRow:(NSInteger)row column:(int)column cell:(TerminalGlyph *)cell;
+
 - (int)pushLine:(int)columns cells:(const TerminalGlyph *)cells;
 
 - (int)popLine:(int)columns cells:(TerminalGlyph *)cells;
